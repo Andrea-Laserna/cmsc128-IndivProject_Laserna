@@ -1,0 +1,7 @@
+.add-task-popup, .edit-task-popup {
+    display: none;
+} 
+
+.add-task-popup.active, .edit-task-popup.active {
+    display: block;
+}
