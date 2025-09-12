@@ -12,7 +12,7 @@
                 <div class="add-task-content">
                     <h2>Add a new task:</h2>
                     <form action="/add_task" method="POST">
-                        <label for="task-name">Task name:</label><br>
+                        <label for="task">Task name:</label><br>
                         <input type="text" id="task" name="task" placeholder="Enter task..." required><br>
 
                         <label for="priority">Priority Level:</label><br>
@@ -34,10 +34,11 @@
             <ul class="tasks-list">
                 {% for task in tasks %} 
                     <li>
-                        <span>{{task[1]}} (Priority: {{task[2]}}) (Deadline: {{task[3]}})</span>
+                        <input type="checkbox" class="task-status" data-id="{{task[0]}}" onchange="toggleTask(this.dataset.id, this.checked)" {% if task[2] == 1 %} checked {% endif %}>
+                        <span>{{task[1]}} (Priority: {{task[3]}}) (Deadline: {{task[4]}})</span>
                         <!-- edit and delete task -->
                         <div class="btn update-btns">
-                            <button class="btn edit-btn" data-id="{{task[0]}}" data-task="{{task[1]}}" data-priority="{{task[2]}}" data-deadline="{{task[3]}}">Edit</button>
+                            <button class="btn edit-btn" data-id="{{task[0]}}" data-task="{{task[1]}}" data-priority="{{task[3]}}" data-deadline="{{task[4]}}">Edit</button>
                             <a href = "{{url_for('delete_task_route', id=task[0])}}" class="btn delete-btn">Delete</a>
                         </div>
                     </li>

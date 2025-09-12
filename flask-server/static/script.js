@@ -22,6 +22,7 @@ document.addEventListener("DOMContentLoaded", () => {
 
     openEditPopup.forEach(button => {
         button.addEventListener("click", () => {
+            // Get data from database in button
             const id = button.dataset.id;
             const task = button.dataset.task;
             const priority = button.dataset.priority;
@@ -41,4 +42,14 @@ document.addEventListener("DOMContentLoaded", () => {
     closeEditPopup.addEventListener("click", () => {
         editTaskPopup.classList.remove("active");
     });
+
 });
+
+function toggleTask(id, checked) {
+    const isChecked = checked ? 1 : 0;
+    fetch(`/toggle_task/${id}`, {
+        method: "POST",
+        headers: {"Content-Type": "application/x-www-form-urlencoded"},
+        body: `isChecked=${isChecked}`
+    })
+}

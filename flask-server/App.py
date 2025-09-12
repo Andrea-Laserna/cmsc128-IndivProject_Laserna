@@ -5,14 +5,14 @@ app = Flask(__name__)
 
 DB_path = "C:\\Users\\ASUS\\Desktop\\BSCS 4-1st Sem\\CMSC 128\\cmsc128-IndivProject_Laserna\\tasks.db"
 
-# Setup DB
 def init_db():
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
+    conn = sqlite3.connect(DB_path) # Plug in database
+    cursor = conn.cursor() # Middleman between code and db : allows python to speak SQL to SQLite
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY,
             task TEXT NOT NULL,
+            isChecked BIT DEFAULT 0, 
             priority TEXT NOT NULL,
             deadline DATETIME NOT NULL
         )
@@ -20,15 +20,16 @@ def init_db():
     conn.commit()
     conn.close()
 
+# Reading data
 def get_tasks():
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
     cursor.execute('SELECT * FROM tasks')
-    tasks = cursor.fetchall()
+    tasks = cursor.fetchall() # Gets all rows from result making each row a tuple in a list
     conn.close()
     return tasks
 
-
+# Writing data
 def add_task(task, priority, deadline):
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
@@ -50,6 +51,13 @@ def delete_task(id):
     conn.commit()
     conn.close()
 
+def toggle_task(id, isChecked):
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE tasks SET isChecked = ? WHERE id = ?', (isChecked, id))
+    conn.commit()
+    conn.close()
+
 # Home page
 @app.route('/')
 def index():
@@ -57,7 +65,7 @@ def index():
     return render_template("index.html", tasks=tasks) 
 
 # Add task via POST request
-@app.route('/add_task', methods=['POST'])
+@app.route('/add_task', methods = ['POST'])
 def add_task_route():
     task = request.form['task']
     priority = request.form['priority']    
@@ -79,6 +87,13 @@ def update_task_route(id):
 def delete_task_route(id):
     delete_task(id)
     return redirect(url_for('index'))
+
+# Toggle tasks via POST request
+@app.route('/toggle_task/<int:id>', methods = ['POST'])
+def toggle_task_route(id):
+    isChecked = int(request.form['isChecked'])
+    toggle_task(id, isChecked)
+    return '', 204
 
 # Run
 if __name__ == "__main__":
