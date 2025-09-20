@@ -1,101 +1,155 @@
-from flask import Flask, render_template, request, redirect, url_for
+from flask import Flask, flash, render_template, request, redirect, url_for
+from datetime import datetime
 import sqlite3
 
 app = Flask(__name__)
+app.secret_key = "andrea-gwapa"
 
-DB_path = "C:\\Users\\ASUS\\Desktop\\BSCS 4-1st Sem\\CMSC 128\\cmsc128-IndivProject_Laserna\\tasks.db"
+DB_path = 'C:\\Users\\ASUS\\Desktop\\BSCS 4-1st Sem\\CMSC 128\\cmsc128-IndivProject_Laserna\\tasks.db'
 
+# creating the table
 def init_db():
-    conn = sqlite3.connect(DB_path) # Plug in database
-    cursor = conn.cursor() # Middleman between code and db : allows python to speak SQL to SQLite
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor() # allows python to speak to sqlite
     cursor.execute('''
         CREATE TABLE IF NOT EXISTS tasks (
             id INTEGER PRIMARY KEY,
             task TEXT NOT NULL,
-            isChecked BIT DEFAULT 0, 
+            isChecked BIT DEFAULT 0,
             priority TEXT NOT NULL,
-            deadline DATETIME NOT NULL
+            deadline DATETIME NOT NULL,
+            created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
+            is_deleted BIT DEFAULT 0
         )
     ''')
     conn.commit()
     conn.close()
 
-# Reading data
-def get_tasks():
+# helper functions
+
+# retrieve all tasks with default sorting option
+def get_tasks(sort="created-at", order="asc"):
+    # security purposes lol
+    allowed_sorts = {"priority", "created_at", "deadline"}
+    allowed_order = {"asc", "desc"}
+
+    if sort not in allowed_sorts:
+        sort = "created-at"
+    if order not in allowed_order:
+        order = "desc"
+
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
-    cursor.execute('SELECT * FROM tasks')
-    tasks = cursor.fetchall() # Gets all rows from result making each row a tuple in a list
-    conn.close()
+
+    if sort == "priority":
+        cursor.execute('''
+            SELECT * FROM tasks 
+                WHERE is_deleted = 0
+                ORDER BY CASE priority 
+                    WHEN 'high' THEN 1
+                    WHEN 'medium' THEN 2
+                    WHEN 'low' THEN 3
+                END ASC
+            ''')
+    else:
+        cursor.execute(f'SELECT * FROM tasks WHERE is_deleted = 0 ORDER BY {sort} {order.upper()}')
+
+    tasks = cursor.fetchall()
+    cursor.close()
     return tasks
 
-# Writing data
+# add a task
 def add_task(task, priority, deadline):
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO tasks (task, priority, deadline) VALUES (?, ?, ?)', (task, priority, deadline))
+    cursor.execute('INSERT INTO tasks (task, priority, deadline) VALUES(?, ?, ?)', (task, priority, deadline))
     conn.commit()
-    conn.close()
+    cursor.close()
 
-def update_task(id, task, priority, deadline):
+# edit task
+def edit_task(id, task, priority, deadline):
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
     cursor.execute('UPDATE tasks SET task = ?, priority = ?, deadline = ? WHERE id = ?', (task, priority, deadline, id))
     conn.commit()
-    conn.close()
+    cursor.close()
 
+# delete task
 def delete_task(id):
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
-    cursor.execute('DELETE FROM tasks WHERE id = ?', (id,))
+    cursor.execute('UPDATE tasks SET is_deleted = 1 WHERE id = ?', (id,))
     conn.commit()
-    conn.close()
+    cursor.close()
 
+# toggle task checkbox
 def toggle_task(id, isChecked):
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
     cursor.execute('UPDATE tasks SET isChecked = ? WHERE id = ?', (isChecked, id))
     conn.commit()
-    conn.close()
+    cursor.close()
 
-# Home page
+# undo delete task
+def undo_task_delete(id):
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    cursor.execute('UPDATE tasks SET is_deleted = 0 WHERE id = ?', (id,))
+    conn.commit()
+    cursor.close()
+
+# flask connections
+
+# home page
 @app.route('/')
 def index():
-    tasks = get_tasks()
-    return render_template("index.html", tasks=tasks) 
+    sort = request.args.get("sort", "created_at")
+    order = request.args.get("order", "desc")
+    tasks = get_tasks(sort, order) # includes sorting and order option
+    return render_template("index.html", tasks=tasks)
 
-# Add task via POST request
-@app.route('/add_task', methods = ['POST'])
+# adding tasks
+@app.route('/add_task', methods=['POST'])
 def add_task_route():
-    task = request.form['task']
-    priority = request.form['priority']    
-    deadline = request.form['deadline']
-    add_task(task, priority, deadline)
-    return redirect(url_for('index'))
-
-# Update task via GET and POST request
-@app.route('/update_task/<int:id>', methods = ['GET', 'POST'])
-def update_task_route(id):
     task = request.form['task']
     priority = request.form['priority']
     deadline = request.form['deadline']
-    update_task(id, task, priority, deadline)
-    return redirect(url_for('index'))
+    add_task(task, priority, deadline)
+    return redirect(url_for('index')) 
 
-# Delete tasks via GET request
-@app.route('/delete_task/<int:id>', methods = ['GET'])
+# edit tasks
+@app.route('/update_task/<int:id>', methods=['GET', 'POST'])
+def edit_task_route(id):
+    task = request.form['task']
+    priority = request.form['priority']
+    deadline = request.form['deadline']
+    edit_task(id, task, priority, deadline)
+    return redirect(url_for('index')) 
+
+# delete tasks
+@app.route('/delete_task/<int:id>', methods=['GET']) 
 def delete_task_route(id):
     delete_task(id)
+    flash(f"Item deleted. <a href='{url_for('undo_task_delete_route', id=id)}'>Undo</a>", "undo")
     return redirect(url_for('index'))
 
-# Toggle tasks via POST request
-@app.route('/toggle_task/<int:id>', methods = ['POST'])
+# toggle tasks
+@app.route('/toggle_task/<int:id>', methods=['POST'])
 def toggle_task_route(id):
     isChecked = int(request.form['isChecked'])
     toggle_task(id, isChecked)
     return '', 204
 
-# Run
+# undo task delete
+@app.route('/undo_task_delete/<int:id>', methods=['GET', 'POST'])
+def undo_task_delete_route(id):
+    undo_task_delete(id)
+    return redirect(url_for('index')) 
+
+# run
 if __name__ == "__main__":
     init_db()
     app.run(debug=True)
+   
+
+

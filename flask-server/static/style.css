@@ -1,7 +1,7 @@
-.add-task-popup, .edit-task-popup {
+.add-task-popup, .edit-task-popup, .undo-delete-popup{
     display: none;
 } 
 
-.add-task-popup.active, .edit-task-popup.active {
+.add-task-popup.active, .edit-task-popup.active, .undo-delete-popup.active {
     display: block;
 }
