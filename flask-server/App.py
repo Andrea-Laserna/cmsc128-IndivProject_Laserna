@@ -130,7 +130,8 @@ def edit_task_route(id):
 @app.route('/delete_task/<int:id>', methods=['GET']) 
 def delete_task_route(id):
     delete_task(id)
-    flash(f"Item deleted. <a href='{url_for('undo_task_delete_route', id=id)}'>Undo</a>", "undo")
+    # toast
+    flash(f"Task deleted! <a href='{url_for('undo_task_delete_route', id=id)}' class='btn undo-btn'>Undo</a>", "undo")
     return redirect(url_for('index'))
 
 # toggle tasks

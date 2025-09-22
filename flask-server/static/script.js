@@ -6,8 +6,20 @@ document.addEventListener("DOMContentLoaded", () => {
     const closeEditPopup = document.getElementById('close-edit-btn');
     const editForm = document.getElementById("edit-task-form");
     const editTaskPopup = document.getElementById("edit-task-popup");
-    const deleteBtn = document.getElementById("delete-btn");
-    
+    const deleteBtn = document.querySelectorAll(".delete-btn");
+    const confirmPopup= document.getElementById('confirm-delete-popup');
+    const confirmDelBtn = document.querySelectorAll('.confirm-delete-btn');
+    const cancelDelBtn = document.querySelectorAll('.cancel-delete-btn');
+    const toastPopup = document.querySelector('.toast');
+
+    if (toastPopup) {
+        toastPopup.classList.add('active');
+        
+        setTimeout(()=>{
+            toastPopup.classList.remove('active');
+        }, 5000);
+    }
+
     // Fields inside edit popup
     const taskInput = document.getElementById("edit-task");
     const priorityInput = document.getElementById("edit-priority");
@@ -44,11 +56,27 @@ document.addEventListener("DOMContentLoaded", () => {
         editTaskPopup.classList.remove("active");
     });
 
-    deletedBtns.forEach(button => {
+    // target url for deleting task
+    let targetUrl = "";
+
+    deleteBtn.forEach(button => {
         button.addEventListener("click", (e) => {
-            if (!confirm("Are you sure you want to delete this task?")) {
-                e.preventDefault(); // cancel navigation
-            };
+            e.preventDefault();
+            const taskId = button.dataset.id;
+            targetUrl = `/delete_task/${taskId}`;
+            confirmPopup.classList.add("active");
+        });
+    });
+
+    confirmDelBtn.forEach(button => {
+        button.addEventListener("click", () => {
+            window.location.href = targetUrl;
+        });
+    });
+
+    cancelDelBtn.forEach(button => {
+        button.addEventListener("click", () => {
+            confirmPopup.classList.remove("active");
         });
     });
 });

@@ -1,7 +1,424 @@
-.add-task-popup, .edit-task-popup, .undo-delete-popup{
+:root {
+    --blue: #413553;
+    --lightgreen: #c6ccba;
+    --darkgreen: #7ba87c;
+    --pink: #ba8a90;
+    --lightpink: #daa9af;
+    --darkpink: #a17c86;
+    --red: #b77272;
+    --orange: #cca76b;
+    --purple: #a497a5;
+    --mutegreen: #96a06d;
+    --gray: #6d6963;
+    --navy: #1c1c71;
+    --yellow: #d8d99f;
+    --lightblue: #b1c2ef;
+}
+/* 1. Use a more-intuitive box-sizing model */
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+/* 2. Remove default margin */
+* {
+  margin: 0;
+}
+
+/* 3. Enable keyword animations */
+@media (prefers-reduced-motion: no-preference) {
+  html {
+    interpolate-size: allow-keywords;
+  }
+}
+
+@font-face {
+    font-family: Daydream;
+    src: url(fonts/Daydream.otf);
+}
+
+@font-face {
+    font-family: Pixellari;
+    src: url(fonts/Pixellari.ttf);
+}
+
+body {
+  /* 4. Add accessible line-height */
+  line-height: 1.5;
+  /* 5. Improve text rendering */
+  -webkit-font-smoothing: antialiased;
+  font-family: Pixellari;
+  background-image: url("images/pond_bg.png");
+  background-size: cover;
+  color: var(--blue);
+}
+
+/* 6. Improve media defaults */
+img, picture, video, canvas, svg {
+  display: block;
+  max-width: 100%;
+}
+
+/* 7. Inherit fonts for form controls */
+input, button, textarea, select {
+  font: inherit;
+}
+
+/* 8. Avoid text overflows */
+p, h1, h2, h3, h4, h5, h6 {
+  overflow-wrap: break-word;
+}
+
+/* 9. Improve line wrapping */
+p {
+  text-wrap: pretty;
+}
+h1, h2, h3, h4, h5, h6 {
+  text-wrap: balance;
+}
+
+/*
+  10. Create a root stacking context
+*/
+
+#root, #__next {
+  isolation: isolate;
+}
+
+.add-task-popup, .edit-task-popup, .undo-delete-popup, .confirm-delete-popup{
     display: none;
 } 
 
-.add-task-popup.active, .edit-task-popup.active, .undo-delete-popup.active {
+.add-task-popup.active, .edit-task-popup.active, .undo-delete-popup.active, .confirm-delete-popup.active {
     display: block;
 }
+
+/* Welcome */
+.hero-section .welcome {
+    margin: 2rem;
+    display: flex;
+    align-items: center;
+}
+
+.hero-section .welcome img {
+    width: 100px;
+}
+
+.hero-section .welcome h1 {
+    font-size: 1.4rem;
+    color: var(--navy);
+}
+
+.hero-section .welcome span {
+    font-size: 2rem;
+    font-family: Daydream;
+}
+
+/* Buttons */
+.btn {
+    display: inline-block;
+    cursor: pointer;
+    box-shadow: 0px 5px var(--blue), 0px -5px var(--blue), 5px 0px var(--blue), -5px 0px var(--blue), 0px 10px var(--gray), 5px 5px var(--gray), -5px 5px var(--gray), inset 0px 5px var(--lightgreen);
+    background-color: var(--mutegreen);
+    padding: 0px 10px 0px 10px;
+    text-align: center;
+    color: var(--blue);
+}
+
+.btn:active {
+    transform: translateY(5px);
+    box-shadow: 0px 5px var(--blue), 0px -5px var(--blue), 5px 0px var(--blue), -5px 0px var(--blue),inset 0px 5px var(--lightgreen);
+}
+
+.btn:hover{
+    transform: translate(-2px, -2px);
+}
+
+/* Sorting */
+.hero-section .task-body .task-header {
+    display: flex;
+    justify-content: flex-end;
+    width: 45vw;
+    margin: 1.5rem;
+}
+
+.hero-section .task-body .task-header .dropdown .dropdown-content {
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    position: absolute;
+    margin: 0 1rem;
+    background-color: antiquewhite;
+    box-shadow: rgb(38, 57, 77) 0px 20px 30px -10px;
+    border-radius: 10px;
+    border-style: ridge;
+    display: none;
+}
+
+.hero-section .task-body .task-header .dropdown {
+    align-self: flex-end;
+    margin-top: -2rem;
+    margin-bottom: 1.8rem;
+}
+
+.hero-section .task-body .task-header .dropdown .sort-btn {
+    background-color: var(--yellow);
+}
+
+.hero-section .task-body .task-header .dropdown .dropdown-content a {
+    text-decoration: none;
+    display: block;
+    border-radius: 10px;
+}
+
+.hero-section .task-body .task-header .dropdown .dropdown-content a:hover {
+    display: block;
+    background-color: var(--lightgreen);
+    padding: 0 0.5rem;
+    padding-left: 2rem;
+}
+
+.hero-section .task-body .task-header .dropdown:hover .dropdown-content{
+    display: flex;
+}
+
+.hero-section .task-body .task-header .dropdown:hover .fa-caret-down{
+    transform: rotate(0deg);
+    transition: 0.3s ease-in-out all;
+}
+
+.hero-section .task-body .task-header .dropdown:hover .fa-caret-down{
+    transform: rotate(180deg);
+}
+
+/* Main todo list */
+.hero-section .task-body{
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    flex-direction: column;
+    width: 100vw;
+}
+
+.hero-section .task-body .tasks-container {
+    margin-top: -2rem;
+    width: 45vw;
+    height: 50vh;
+    border: 0.5rem solid var(--blue);
+    outline: 0.5rem solid var(--gray);
+    border-style: ridge;
+    border-radius: 10px;
+    padding: 2rem;
+    background-color: var(--lightgreen);
+    overflow-y: auto;
+    overflow-x: hidden;
+}
+
+.hero-section .task-body .tasks-container .tasks-list {
+    list-style-type: none;
+    padding-left: 0;
+    margin: 0;
+}
+
+.hero-section .task-body .tasks-container .tasks-list li{
+    display: flex;
+}
+
+.hero-section .task-body .tasks-container .tasks-list li .task-item{
+    width: 40vw;
+    display: flex;
+    flex-direction: column;
+}
+
+.hero-section .task-body .tasks-container .tasks-list li .task-item .task-box-list {
+    display: flex;
+}
+
+.hero-section .task-body .tasks-container .tasks-list li .task-item .task-box-list .checkbox {
+    z-index: 999;
+    margin-right: 0.5rem;
+}
+
+.hero-section .task-body .tasks-container .tasks-list li .task-item .task-box-list p {
+    font-size: 1.3rem;
+    font-weight: bold;
+}
+
+.hero-section .task-body .tasks-container .tasks-list li .update-btns{
+    display: flex;
+    flex-direction: row;
+    margin: 1rem;
+}
+
+.hero-section .task-body .tasks-container .tasks-list li .update-btns .edit-btn{
+    margin: 1rem;
+}
+
+.hero-section .task-body .tasks-container .tasks-list li .update-btns .delete-btn{
+    display: inline-block;
+    margin: 1rem;
+    text-decoration: none;
+    color: var(--blue);
+    background-color: var(--darkpink);
+    box-shadow: 0px 5px var(--blue), 0px -5px var(--blue), 5px 0px var(--blue), -5px 0px var(--blue), 0px 10px var(--gray), 5px 5px var(--gray), -5px 5px var(--gray), inset 0px 5px var(--pink);
+}
+
+/* Priority Color */
+.hero-section .task-body .tasks-container .tasks-list li.high {
+    position: relative;
+    margin-left: 2rem;
+}
+.hero-section .task-body .tasks-container .tasks-list li.high::before{
+    content: url(images/high.gif);
+    position: absolute;
+    z-index: 1;
+    top: -10%;
+    left: -12%;
+    display: inline-block;
+    width: 16px;
+    vertical-align: middle;
+}
+
+.hero-section .task-body .tasks-container .tasks-list li.medium {
+    position: relative;
+    margin-left: 2rem;
+}
+.hero-section .task-body .tasks-container .tasks-list li.medium::before{
+    content: url(images/medium.gif);
+    position: absolute;
+    top: -10%;
+    left: -12%;
+    display: inline-block;
+    width: 16px;
+    vertical-align: middle;
+}
+
+.hero-section .task-body .tasks-container .tasks-list li.low {
+    position: relative;
+    margin-left: 2rem;
+}
+.hero-section .task-body .tasks-container .tasks-list li.low::before{
+    content: url(images/low.gif);
+    position: absolute;
+    top: -10%;
+    left: -12%;
+    display: inline-block;
+    width: 16px;
+    vertical-align: middle;
+}
+
+.horizonal {
+    border: 2px solid var(--purple);
+}
+
+/* Add task */
+.hero-section .task-body .task-add-body {
+    width: 48vw;
+    display: flex;
+    justify-content: flex-end;
+}
+
+.hero-section .task-body .task-add-body button{
+    background-color: var(--lightblue);
+    box-shadow: 0px 5px var(--blue), 0px -5px var(--blue), 5px 0px var(--blue), -5px 0px var(--blue), 0px 10px var(--gray), 5px 5px var(--gray), -5px 5px var(--gray), inset 0px 5px #d4dfff;
+    margin: 1.5rem;
+}
+
+/* Add task popup */
+.hero-section .task-body .popup {
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(140%, -50%);
+    border: 0.5rem solid var(--blue);
+    border-style: ridge;
+    border-radius: 15px;
+    background-color: var(--purple);
+    padding: 2rem;
+}
+
+.hero-section .task-body .popup .add-task-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.hero-section .task-body .popup .add-task-content .close-btn {
+    margin-bottom: 1rem;
+    display: inline-block;
+    width: auto;
+    align-self: flex-end;
+}
+
+.hero-section .task-body .popup .add-task-content form .submit-btn {
+    margin: 1rem auto;
+    display: block;
+}
+
+/* Edit task */
+.hero-section .task-body .popup .edit-task-content {
+    display: flex;
+    flex-direction: column;
+}
+
+.hero-section .task-body .popup .edit-task-content .close-btn {
+    margin-bottom: 1rem;
+    display: inline-block;
+    width: auto;
+    align-self: flex-end;
+}
+
+.hero-section .task-body .popup .edit-task-content .submit-btn {
+    margin: 1rem auto;
+    display: block;
+}
+
+/* Delete confirmation */
+.hero-section .task-body .popup.confirm-delete-popup {
+    position: fixed;
+    display: hidden;
+    top: 15%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+}
+
+.hero-section .task-body .popup .confirm-delete-content {
+    text-align: center;
+    padding: 5px;
+}
+
+.hero-section .task-body .popup .confirm-delete-content button {
+    margin: 0.5rem;
+}
+
+.hero-section .task-body .popup .confirm-delete-content .cancel-delete-btn {
+    background-color: var(--darkpink);
+    box-shadow: 0px 5px var(--blue), 0px -5px var(--blue), 5px 0px var(--blue), -5px 0px var(--blue), 0px 10px var(--gray), 5px 5px var(--gray), -5px 5px var(--gray), inset 0px 5px var(--pink);
+}
+
+/* Toast Container */
+.popup .toast {
+    background-color: var(--lightpink);
+    border: 0.5rem solid var(--darkpink);
+    border-style: ridge;
+    padding: 2rem;
+    position: fixed;
+    bottom: 20px;
+    right: 20px;
+    border-radius: 10px;
+    box-shadow: rgb(38, 57, 77) 0px 20px 30px -10px;
+    align-items: center;
+    animation: fadeIn 0.3s ease;
+    display: none;
+}
+
+.popup .toast.active {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+}
+
+.toast.active .btn.undo-btn {
+    background-color: var(--darkgreen);
+}
+

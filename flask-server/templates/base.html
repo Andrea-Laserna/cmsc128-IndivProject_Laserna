@@ -8,11 +8,14 @@
     <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/4.7.0/css/font-awesome.min.css">
 </head>
 
+<!-- retrieve all flask msgs from session -->
 {% with messages = get_flashed_messages(with_categories=true) %}
   {% if messages %}
-    <div class="flash-container">
+    <div class="popup">
+      <!-- loop over the messages -->
       {% for category, msg in messages %}
-        <div class="flash {{ category }}">
+        <div class="toast {{ category }}">
+          <!-- display the msg with clickable link route -->
           {{ msg|safe }}
         </div>
       {% endfor %}

@@ -5,19 +5,60 @@
 {% block body %}
 
 <section class="hero-section" id="hero">
-    <h1>Welcome to Dooby!</h1>
-    <div class="dropdown">
-        <button class="dropBtn">Sort By <i class="fa fa-caret-down"></i></button>
-        <div class="dropdown-content">
-            <a href="/?sort=priority">Priority ↑</a>
-            <a href="/?sort=created_at&order=desc">Date of Creation ↑</a>
-            <a href="/?sort=deadline&order=asc">Deadline ↓</a>
-        </div>
+    <div class="welcome">
+        <img src="../static/images/frogart_small.gif" alt="frogart_small">
+        <h1>Welcome to<br><span>Dooby!</span></h1>
     </div>
-    <div class="tasks-container" id="tasks-container">
-        <button id="open-task-btn" class="btn open-btn">Add Task</button>
-            <div class="popup add-task-popup" id="add-task-popup">
+    <div class="task-body">
+        <div class="task-header">
+            <div class="dropdown">
+                <button class="btn sort-btn">Sort By <i class="fa fa-caret-down"></i></button>
+                <div class="dropdown-content">
+                    <a href="/?sort=priority">Priority (Highest)</a><hr>
+                    <a href="/?sort=created_at&order=desc">Date of Creation (Most Recent)</a><hr>
+                    <a href="/?sort=deadline&order=asc">Deadline (Earliest)</a>
+                </div>
+            </div>
+        </div>
+        <div class="tasks-container" id="tasks-container">
+            <ul class="tasks-list">
+                {% if tasks|length == 0 %}
+                    <p>You don't have any tasks yet :)</p><br>
+                    <p>Click Add Task to Start!</p>
+                {% else %}
+                    {% for task in tasks %} 
+                        <li class="{{task[3]}}">
+                            <div class="task-item">
+                                <div class="task-box-list">
+                                    <input type="checkbox" class="checkbox" data-id="{{task[0]}}" onchange="toggleTask(this.dataset.id, this.checked)" {% if task[2] == 1 %} checked {% endif %}>
+                                    <p> {{task[1]}}</p><br>
+                                </div>
+                                <span>Priority: {{task[3]}}<br>Deadline: {{task[4]}}<br>Created at: {{task[5]}}</span>
+                            </div>
+                            <!-- edit and delete task -->
+                            <div class="update-btns">
+                                <button class="btn edit-btn" data-id="{{task[0]}}" data-task="{{task[1]}}" data-priority="{{task[3]}}" data-deadline="{{task[4]}}">Edit</button>
+                                <button class="btn delete-btn" data-id="{{task[0]}}">Delete</button>
+                            </div>
+                        </li>
+                        <hr class="horizontal"><br>
+                    {% endfor %}
+                {% endif %}
+            </ul>
+        </div>
+        <div class="popup confirm-delete-popup" id="confirm-delete-popup">
+            <div class="confirm-delete-content">
+                <p>Are you sure you want to delete this task?</p>
+                <button class="btn confirm-delete-btn">Yes</button>
+                <button class="btn cancel-delete-btn">Cancel</button>
+            </div>
+        </div>
+        <div class="task-add-body">
+            <button id="open-task-btn" class="btn open-btn">Add Task</button>
+        </div>
+        <div class="popup add-task-popup" id="add-task-popup">
             <div class="add-task-content">
+                <button class="btn close-btn" id="close-add-btn">X</button>
                 <h2>Add a new task:</h2>
                 <form action="/add_task" method="POST">
                     <label for="task">Task name:</label><br>
@@ -28,63 +69,37 @@
                         <option value="high" id="high-priority">High</option>
                         <option value="medium" id="medium-priority">Medium</option>
                         <option value="low">Low</option>
-                    </select>
+                    </select><br>
 
                     <label for="deadline">Deadline:</label><br>
                     <input type="datetime-local" id="deadline" name="deadline" value="2025-09-10T14:30" required><br>
 
-                    <input type="submit" value="Submit">
+                    <input type="submit" class="btn submit-btn" value="Submit">
                 </form>
-                <button class="btn close-btn" id="close-add-btn">Close</button>
             </div>
+        </div>
+        <div class="popup edit-task-popup" id="edit-task-popup">
+            <div class="edit-task-content">
+                <button class="btn close-btn" id="close-edit-btn">X</button>
+                <h2>Edit task:</h2>
+                <form id="edit-task-form" method="POST">
+                    <label for="task-name">Task name:</label><br>
+                    <input type="text" id="edit-task" name="task" required><br>
+
+                    <label for="priority">Priority Level:</label><br>
+                    <select name="priority" id="edit-priority" required>
+                        <option value="high">High</option>
+                        <option value="medium">Medium</option>
+                        <option value="low">Low</option>
+                    </select><br>
+
+                    <label for="deadline">Deadline:</label><br>
+                    <input type="datetime-local" id="edit-deadline" name="deadline"><br>
+
+                    <input type="submit" class="btn submit-btn" value="Save">
+                </form>
             </div>
-
-        <ul class="tasks-list">
-            {% for task in tasks %} 
-                <li>
-                    <input type="checkbox" data-id="{{task[0]}}" onchange="toggleTask(this.dataset.id, this.checked)" {% if task[2] == 1 %} checked {% endif %}>
-                    <span>{{task[1]}} (Priority:{{task[3]}}) (Deadline:{{task[4]}}) (Created at:{{task[5]}})</span>
-                    <!-- edit and delete task -->
-                    <div class="btn update-btns">
-                        <button class="btn edit-btn" data-id="{{task[0]}}" data-task="{{task[1]}}" data-priority="{{task[3]}}" data-deadline="{{task[4]}}">Edit</button>
-                        <a href="{{ url_for('delete_task_route', id=task[0]) }}" data-deleted="{{task[6]}}" class="btn delete-btn" id="delete-btn">Delete</a>
-                    </div>
-                </li>
-            {% endfor %}
-
-            <div class="popup edit-task-popup" id="edit-task-popup">
-                <div class="edit-task-content">
-                    <h2>Edit task:</h2>
-                    <form id="edit-task-form" method="POST">
-                        <label for="task-name">Task name:</label><br>
-                        <input type="text" id="edit-task" name="task" required><br>
-
-                        <label for="priority">Priority Level:</label><br>
-                        <select name="priority" id="edit-priority" required>
-                            <option value="high">High</option>
-                            <option value="medium">Medium</option>
-                            <option value="low">Low</option>
-                        </select>
-
-                        <label for="deadline">Deadline:</label><br>
-                        <input type="datetime-local" id="edit-deadline" name="deadline"><br>
-
-                        <input type="submit" value="Save">
-                    </form>
-                    <button class="btn close-btn" id="close-edit-btn">Close</button>
-                </div>
-            </div>
-            
-            <div class="popup undo-delete-popup" id="undo-delete-popup">
-                <div class="undo-delete-content">
-                    {% for task in tasks %}
-                        <p>You deleted a task. Do you want to undo deletion?</p>
-                        <a href="{{ url_for('undo_task_delete_route', id=task[0]) }}" class="undo-btn" id="undo-btn">Undo</a>
-                        <a href="#" class="cancel-undo-btn" id="cancel-undo-btn">Cancel</a>
-                    {% endfor %}
-                </div>
-            </div>
-        </ul>
+        </div>
     </div>
 </section>
 
