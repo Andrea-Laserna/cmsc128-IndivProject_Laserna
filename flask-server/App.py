@@ -5,7 +5,7 @@ import sqlite3
 app = Flask(__name__)
 app.secret_key = "andrea-gwapa"
 
-DB_path = 'C:\\Users\\ASUS\\Desktop\\BSCS 4-1st Sem\\CMSC 128\\cmsc128-IndivProject_Laserna\\tasks.db'
+DB_path = 'tasks.db'
 
 # creating the table
 def init_db():
@@ -28,7 +28,7 @@ def init_db():
 # helper functions
 
 # retrieve all tasks with default sorting option
-def get_tasks(sort="created-at", order="asc"):
+def get_tasks(sort="created-at", order="desc"):
     # security purposes lol
     allowed_sorts = {"priority", "created_at", "deadline"}
     allowed_order = {"asc", "desc"}
@@ -139,7 +139,7 @@ def delete_task_route(id):
 def toggle_task_route(id):
     isChecked = int(request.form['isChecked'])
     toggle_task(id, isChecked)
-    return '', 204
+    return '', 204 # no content
 
 # undo task delete
 @app.route('/undo_task_delete/<int:id>', methods=['GET', 'POST'])
