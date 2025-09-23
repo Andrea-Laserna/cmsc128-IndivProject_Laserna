@@ -15,6 +15,7 @@
       <!-- loop over the messages -->
       {% for category, msg in messages %}
         <div class="toast {{ category }}">
+          <div class="progress"></div>
           <!-- display the msg with clickable link route -->
           {{ msg|safe }}
         </div>

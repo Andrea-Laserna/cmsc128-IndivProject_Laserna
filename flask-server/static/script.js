@@ -20,6 +20,7 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 5000);
     }
 
+
     // Fields inside edit popup
     const taskInput = document.getElementById("edit-task");
     const priorityInput = document.getElementById("edit-priority");
