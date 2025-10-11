@@ -1,9 +1,14 @@
 from flask import Flask, flash, render_template, request, redirect, url_for
 from datetime import datetime
+from dotenv import load_dotenv
+import os
 import sqlite3
 
+# load variables from .env
+load_dotenv()
+
 app = Flask(__name__)
-app.secret_key = "andrea-gwapa"
+app.secret_key = os.getenv("SECRET_KEY")
 
 DB_path = 'tasks.db'
 
