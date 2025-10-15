@@ -1,0 +1,18 @@
+{% extends "base.html" %}
+{% block content %}
+<div class="profile-form">
+  <h2>Edit Profile</h2>
+  <form method="POST">
+    <label>Name:</label>
+    <input type="text" name="name" value="{{ user[0] }}" required>
+
+    <label>Email:</label>
+    <input type="email" name="email" value="{{ user[1] }}" required>
+
+    <label>New Password (optional):</label>
+    <input type="password" name="password" placeholder="Leave blank to keep current password">
+
+    <button type="submit">Save Changes</button>
+  </form>
+</div>
+{% endblock %}

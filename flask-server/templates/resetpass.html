@@ -1,0 +1,22 @@
+{% extends 'base.html' %}
+
+{% block title %} Reset Password {% endblock %}
+
+{% block styles %}
+    {{ super() }} <!-- keep base css -->
+    <!-- insert customized css for resetpass page -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='resetpass.css') }}">
+{% endblock %}
+
+{% block body %}
+<a href="/login" class="back">< Back</a>
+<form method="POST">
+    <h1>Reset Password</h1>
+    <div class="container">
+        <label>New Password:</label>
+        <input type="password" placeholder="Enter new password" name="new_password" required>
+
+        <button type="submit" class="btn resetBtn">Reset</button>
+    </div>
+</form>
+{% endblock %}

@@ -1,0 +1,21 @@
+{% extends 'base.html' %}
+
+{% block title %} Password Reset Link {% endblock %}
+
+{% block styles %}
+    {{ super() }} <!-- keep base css -->
+    <!-- insert customized css for reset link page -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='resetlink.css') }}">
+{% endblock %}
+
+{% block body %}
+<a href="/login" class="back">< Back</a>
+<div class="reset-container">
+    <h2>Password Reset</h2>
+    <div class="container">
+        <p>Click on the link below to reset your password.</p>
+        <a href="{{ link }}" target="_blank">{{ link }}</a>
+    </div>
+</div>
+
+{% endblock %}

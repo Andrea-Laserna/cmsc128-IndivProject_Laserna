@@ -1,0 +1,28 @@
+{% extends "base.html" %}
+
+{% block title %} Edit Profile {% endblock %}
+
+{% block styles %}
+    {{ super() }} <!-- keep base css -->
+    <!-- insert customized css for signup page -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='editprofile.css') }}">
+{% endblock %}
+
+{% block body %}
+<a href="/" class="back">< Back</a>
+<form method="POST">
+  <h1>Edit Profile</h1>
+  <div class="container">
+    <label>Name:</label>
+    <input type="text" name="name" value="{{ user[0] }}" required>
+
+    <label>Email:</label>
+    <input type="email" name="email" value="{{ user[1] }}" required>
+
+    <label>New Password (optional):</label>
+    <input type="password" name="password" placeholder="Enter new password">
+
+    <button type="submit" class="btn saveBtn">Save Changes</button>
+  </div>
+</form>
+{% endblock %}

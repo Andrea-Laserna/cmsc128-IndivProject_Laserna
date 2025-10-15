@@ -2,12 +2,30 @@
 
 {% block title %} Home {% endblock %}
 
+{% block styles %}
+    {{ super() }} <!-- keep base css -->
+{% endblock %}
+
 {% block body %}
 
 <section class="hero-section" id="hero">
     <div class="welcome">
         <img src="../static/images/frogart_small.gif" alt="frogart_small">
         <h1>Welcome to<br><span>Dooby!</span></h1>
+    </div>
+    <div class="header">
+        <div class="dropdown-profile">
+            <img src="../static/images/profile.png" class="profileBtn">
+            <div class="profile-container">
+                <button class="btn close-profile-btn">X</button>
+                <div class="dropdown-profile-content">
+                    <h2>Hello, {{ name }}</h2>
+                    <p>{{ email }}</p>
+                    <a href="{{ url_for('profile') }}">Edit Profile</a>
+                    <a href="{{ url_for('logout') }}" class="logout-btn">Log Out</a>
+                </div>
+            </div>
+        </div>
     </div>
     <div class="task-body">
         <div class="task-header">
@@ -30,15 +48,15 @@
                         <li class="{{task[3]}}">
                             <div class="task-item">
                                 <div class="task-box-list">
-                                    <input type="checkbox" class="checkbox" data-id="{{task[0]}}" onchange="toggleTask(this.dataset.id, this.checked)" {% if task[2] == 1 %} checked {% endif %}>
+                                    <input type="checkbox" class="checkbox" data-taskid="{{task[0]}}" onchange="toggleTask(this.dataset.taskid, this.checked)" {% if task[2] == 1 %} checked {% endif %}>
                                     <p> {{task[1]}}</p><br>
                                 </div>
                                 <span>Priority: {{task[3]}}<br>Deadline: {{task[4]}}<br>Created at: {{task[5]}}</span>
                             </div>
                             <!-- edit and delete task -->
                             <div class="update-btns">
-                                <button class="btn edit-btn" data-id="{{task[0]}}" data-task="{{task[1]}}" data-priority="{{task[3]}}" data-deadline="{{task[4]}}">Edit</button>
-                                <button class="btn delete-btn" data-id="{{task[0]}}">Delete</button>
+                                <button class="btn edit-btn" data-taskid="{{task[0]}}" data-taskname="{{task[1]}}" data-priority="{{task[3]}}" data-deadline="{{task[4]}}">Edit</button>
+                                <button class="btn delete-btn" data-taskid="{{task[0]}}">Delete</button>
                             </div>
                         </li><br>
                         <hr class="horizontal"><br>
@@ -61,8 +79,8 @@
                 <button class="btn close-btn" id="close-add-btn">X</button>
                 <h2>Add a new task:</h2>
                 <form action="/add_task" method="POST">
-                    <label for="task">Task name:</label><br>
-                    <input type="text" id="task" name="task" placeholder="Enter task..." required><br>
+                    <label for="task_name">Task name:</label><br>
+                    <input type="text" id="task_name" name="task_name" placeholder="Enter task..." required><br>
 
                     <label for="priority">Priority Level:</label><br>
                     <select name="priority" id="priority" required>
@@ -84,7 +102,7 @@
                 <h2>Edit task:</h2>
                 <form id="edit-task-form" method="POST">
                     <label for="task-name">Task name:</label><br>
-                    <input type="text" id="edit-task" name="task" required><br>
+                    <input type="text" id="edit-task" name="task_name" required><br>
 
                     <label for="priority">Priority Level:</label><br>
                     <select name="priority" id="edit-priority" required>

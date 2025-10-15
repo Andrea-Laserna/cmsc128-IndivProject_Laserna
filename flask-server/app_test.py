@@ -10,11 +10,17 @@ from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 load_dotenv()
 
 app = Flask(__name__)
-# if key doesnt exist from .env, use dev_secret_key instead
+
+'''
+if key doesnt exist from .env, use dev_secret_key instead
+flask gives users a cookie to remember (e.g. session = {"user_id": 42})
+since flask stores it as plain text, it can be changed by another user so before sending
+the session cookie to the user's browser, flask runs it through a cryptographic signing algorithm
+using the secret key
+'''
 app.secret_key = os.getenv("SECRET_KEY") or "dev_secret_key"
 
 # generate and verify secure tokens 
-# use the secret key to cryptographically sign my tokens so nobody can forge them
 serializer = URLSafeTimedSerializer(app.secret_key) 
 
 DB_path = 'tasks.db'
@@ -133,27 +139,26 @@ def undo_task_delete(task_id):
 def signup_user(name, password, email):
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
-    # encryot password before saving to database
     hashwed_pwd = generate_password_hash(password)
     cursor.execute('INSERT INTO users (name, password, email) VALUES(?, ?, ?)', (name, hashwed_pwd, email))
     conn.commit()
     cursor.close()
     conn.close()
 
-# retrieve all details
+# login user
 def get_user(name):
     conn = sqlite3.connect(DB_path)
-    conn.row_factory = sqlite3.Row  # return dict-like rows
     cursor = conn.cursor()
-    cursor.execute("SELECT user_id, name, email, password FROM users WHERE name=?", (name,))
+    cursor.execute('SELECT * FROM users WHERE name = ?', (name,))
     user = cursor.fetchone()
+    cursor.close()
     conn.close()
     return user
 
 def get_user_email(email):
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
-    cursor.execute("SELECT user_id, name, email, password FROM users WHERE email=?", (email,))
+    cursor.execute('SELECT * FROM users WHERE email = ?', (email,))
     user = cursor.fetchone()
     cursor.close()
     conn.close()
@@ -178,12 +183,21 @@ def index():
         flash("Please login to add tasks.")
         return redirect(url_for('login'))
 
+    user_id = session['user_id']
+
     sort = request.args.get("sort", "created_at")
     order = request.args.get("order", "desc")
     tasks = get_tasks(sort, order) # includes sorting and order option
 
-    # pass the session values explicitly from login details
-    return render_template("index.html", tasks=tasks, name=session['name'], email=session['email'])
+    # get user info
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    cursor.execute("SELECT name, email FROM users WHERE user_id = ?", (user_id,))
+    user = cursor.fetchone()
+    cursor.close()
+    conn.close()
+
+    return render_template("index.html", tasks=tasks, user = user)
 
 # adding tasks
 @app.route('/add_task', methods=['POST'])
@@ -239,22 +253,18 @@ def undo_task_delete_route(task_id):
 @app.route('/signup', methods=['POST', 'GET'])
 def signup():
     if request.method == 'POST':
-        # Request the following from the form to add to database
         email = request.form['email']
         password = request.form['password']
         name = request.form['name']
 
-        # If user is already taken, signup again
         if user_exists(name, email):
             flash("Username or email already taken. Please try again.")
             return redirect(url_for('signup'))
         else: 
-
             signup_user(name, password, email)
             flash("Account created successfully!")
-            # Proceed to login page after signup
             return redirect(url_for('login')) 
-    # Load signup page first before processing form 
+            
     return render_template("signup.html")
 
 # login page
@@ -264,29 +274,27 @@ def login():
         # user submitted the form
         name = request.form['name']
         password = request.form['password']
-        # verify credentials - only get the unique name because we dont need the email anymore
+        # verify credentials
         user = get_user(name)
-        # if user doesnt exist in the db, login again
+        # check if user exists
         if user is None:
             flash('Username not found.')
             return redirect(url_for('login'))
         
-        # if user exists, retrieve hashed pw from db
-        stored_pwd = user['password']
+        stored_pwd = user[2]
 
         # verify password
-        # rehash entered password and compare to the stored password
         if check_password_hash(stored_pwd, password):
-            # store session details from get_user(name) signed by secret key
-            session['user_id'] = user['user_id']
-            session['name'] = user['name']
-            session['email'] = user['email']
+            # store user id
+            session['user_id'] = user[0]
+            # display name
+            session['name'] = user[1]
             flash('Login successful!')
             return redirect(url_for('index')) 
         else:
             flash('Incorrect password.')
             return redirect(url_for('login'))
-    # visit login page first
+    # visit login page
     return render_template("login.html")
 
 # forgot password
@@ -297,103 +305,95 @@ def forgot_password():
         user = get_user_email(email)
 
         if user:
-            # generate token from user email
+            # generate token
             token = serializer.dumps(email, salt='password-recovery')
-            # generate link with token
-            # profile route will handle the request because it handles both reset and editing of details
             reset_link = url_for('reset_password', token=token, _external=True)
 
             # show link on page instead of sending email
             return redirect(url_for('show_reset_link', link=reset_link))
         else:
-            # ask for password again
             flash("Email not found.")
             return redirect(url_for('forgot_password'))
-    # load forgotpwd page first
     return render_template('forgotpwd.html')
 
 @app.route('/show_reset_link')
 def show_reset_link():
-    # retrieve reset_link from /forgot_password
     link = request.args.get('link')
-    # pass the link to template to display
     return render_template('resetlink.html', link=link)
 
-@app.route('/reset_password/<token>', methods=['GET', 'POST'])
-def reset_password(token):
-    try:
-        email = serializer.loads(token, salt='password-recovery', max_age=3600)
-    except (SignatureExpired, BadSignature):
-        flash("Invalid or expired reset link.", "error")
-        return redirect(url_for('forgot_password'))
 
-    if request.method == 'POST':
-        new_password = request.form['new_password']
-        hashed = generate_password_hash(new_password)
-
-        conn = sqlite3.connect(DB_path)
-        cursor = conn.cursor()
-        cursor.execute("UPDATE users SET password=? WHERE email=?", (hashed, email))
-        conn.commit()
-        conn.close()
-
-        flash("Password reset successful!", "success")
-        return redirect(url_for('login'))
-
-    # show the reset form
-    return render_template('resetpass.html', email=email)
-    
 @app.route('/profile', methods=['GET', 'POST'])
-def profile():
+@app.route('/profile/<token>', methods=['GET', 'POST'])
+def profile(token=None):
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
+
     user_id = session.get('user_id')
+    email = None
 
-    if not user_id:
-        flash("You need to log in to access your profile.", "error")
-        return redirect(url_for('login'))
+    # If a reset token is present, verify it
+    if token:
+        try:
+            email = serializer.loads(token, salt='password-recovery', max_age=3600)
+        except (SignatureExpired, BadSignature):
+            flash("Invalid or expired reset link.", "error")
+            return redirect(url_for('forgot_password'))
 
+    # ---------------- POST: update logic ----------------
     if request.method == 'POST':
         name = request.form.get('name')
         new_email = request.form.get('email')
         password = request.form.get('password')
 
-        updates = []
-        params = []
+        # Password required if token mode, optional if logged in
+        if token and not password:
+            flash("Please enter a new password.", "error")
+            return redirect(request.url)
 
-        if name:
-            updates.append("name=?")
-            params.append(name)
-            session['name'] = name
+        # Case 1: Logged-in profile update
+        if user_id:
+            if not name or not new_email:
+                flash("Name and email are required.", "error")
+                return redirect(url_for('profile'))
 
-        if new_email:
-            updates.append("email=?")
-            params.append(new_email)
-            session['email'] = new_email
+            if password.strip():
+                hashed = generate_password_hash(password)
+                cursor.execute("""
+                    UPDATE users SET name=?, email=?, password=? WHERE user_id=?
+                """, (name, new_email, hashed, user_id))
+            else:
+                cursor.execute("""
+                    UPDATE users SET name=?, email=? WHERE user_id=?
+                """, (name, new_email, user_id))
 
-        if password and password.strip():
-            hashed = generate_password_hash(password)
-            updates.append("password=?")
-            params.append(hashed)
-
-        if updates:
-            sql = f"UPDATE users SET {', '.join(updates)} WHERE user_id=?"
-            params.append(user_id)
-            cursor.execute(sql, tuple(params))
             conn.commit()
             flash("Profile updated successfully!", "success")
+            session['username'] = name
+            return redirect(url_for('index'))
+
+        # Case 2: Token-based password reset
+        elif email:
+            hashed = generate_password_hash(password)
+            cursor.execute("UPDATE users SET password=? WHERE email=?", (hashed, email))
+            conn.commit()
+            flash("Password reset successful!", "success")
+            return redirect(url_for('login'))
+
         else:
-            flash("No changes detected.", "info")
+            flash("Unauthorized request.", "error")
+            return redirect(url_for('login'))
 
-        return redirect(url_for('index'))
+    # ---------------- GET: load user data ----------------
+    if user_id:
+        cursor.execute("SELECT name, email FROM users WHERE user_id=?", (user_id,))
+        user = cursor.fetchone()
+    else:
+        user = ("", email or "")
 
-    # GET request: fetch user info to prefill form
-    cursor.execute("SELECT name, email FROM users WHERE user_id=?", (user_id,))
-    user = cursor.fetchone()
     conn.close()
 
-    return render_template('profile.html', user=user)
-
+    # `token_mode` flag helps the template know which fields to hide/show
+    return render_template('profile.html', user=user, token_mode=bool(token))
 
 @app.route('/logout')
 def logout():

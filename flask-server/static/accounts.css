@@ -1,0 +1,73 @@
+form {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+}
+
+form h1 {
+    align-self: center;
+    text-align: center;
+    margin-bottom: 1rem;
+    font-family: Daydream;
+    color: var(--navy);
+    font-size: 1.75rem;
+}
+
+form .container{
+    display: flex;
+    flex-direction: column;
+    width: 20vw;
+    height: 50vh;
+    border: 0.5rem solid var(--blue);
+    outline: 0.5rem solid var(--gray);
+    border-style: ridge;
+    border-radius: 10px;
+    padding: 2rem;
+    background-color: var(--lightgreen);
+    
+}
+
+form .container p {
+    font-size: 1.2rem;
+    color: var(--gray);
+    padding-bottom: 10px;
+}
+
+form .container label {
+    font-weight: bold;
+}
+
+form .container input {
+    image-rendering: pixelated;
+    font-size: 12px;
+    background-color: rgb(255, 249, 240);
+    color: var(--blue);
+    border: 3px solid var(--navy);
+    outline: none;
+    padding: 8px;
+    image-rendering: pixelated;
+}
+
+form .accountBtn {
+    width: 50%;
+    margin: 2rem;
+    align-self: center;
+}
+
+form .container .askAccount{
+    display: flex;
+    padding: 1rem;
+    gap: 5px;
+    justify-content: center; 
+}
+
+form .container .askAccount p {
+    font-size: 1rem;
+}
+
+form .container .forgot_link {
+    text-align: right;
+}

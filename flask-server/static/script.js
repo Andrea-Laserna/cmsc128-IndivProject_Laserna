@@ -11,6 +11,9 @@ document.addEventListener("DOMContentLoaded", () => {
     const confirmDelBtn = document.querySelectorAll('.confirm-delete-btn');
     const cancelDelBtn = document.querySelectorAll('.cancel-delete-btn');
     const toastPopup = document.querySelector('.toast');
+    const profileBtn = document.querySelector('.profileBtn')
+    const profileDropdown = document.querySelector('.profile-container')
+    const closeProfile = document.querySelector('.close-profile-btn');
 
     if (toastPopup) {
         toastPopup.classList.add('active');
@@ -20,6 +23,14 @@ document.addEventListener("DOMContentLoaded", () => {
         }, 5000);
     }
 
+    // Profile
+    profileBtn.addEventListener("click", () => {
+        profileDropdown.classList.add('active');
+    })
+
+    closeProfile.addEventListener("click", () => {
+        profileDropdown.classList.remove("active");
+    });
 
     // Fields inside edit popup
     const taskInput = document.getElementById("edit-task");
@@ -37,17 +48,17 @@ document.addEventListener("DOMContentLoaded", () => {
     openEditPopup.forEach(button => {
         button.addEventListener("click", () => {
             // retrieve existing data
-            const id = button.dataset.id;
-            const task = button.dataset.task;
+            const task_id = button.dataset.taskid;
+            const task_name = button.dataset.taskname;
             const priority = button.dataset.priority;
             const deadline = button.dataset.deadline;
 
             // display existing data
-            taskInput.value = task;
+            taskInput.value = task_name;
             priorityInput.value = priority;
             deadlineInput.value = deadline;
 
-            editForm.action = `/update_task/${id}`;
+            editForm.action = `/update_task/${task_id}`;
 
             editTaskPopup.classList.add("active");
         });
@@ -63,7 +74,7 @@ document.addEventListener("DOMContentLoaded", () => {
     deleteBtn.forEach(button => {
         button.addEventListener("click", (e) => {
             e.preventDefault();
-            const taskId = button.dataset.id;
+            const taskId = button.dataset.taskid;
             targetUrl = `/delete_task/${taskId}`;
             confirmPopup.classList.add("active");
         });
@@ -82,9 +93,9 @@ document.addEventListener("DOMContentLoaded", () => {
     });
 });
 
-function toggleTask(id, checked){
+function toggleTask(task_id, checked){
     const isChecked = checked ? 1:0;
-    fetch(`/toggle_task/${id}`, {
+    fetch(`/toggle_task/${task_id}`, {
         method: "POST",
         headers: {"Content-Type": "application/x-www-form-urlencoded"},
         body: `isChecked=${isChecked}`

@@ -51,6 +51,7 @@ body {
   background-size: cover;
   background-repeat: no-repeat;
   color: var(--blue);
+  overflow: hidden;
 }
 
 /* 6. Improve media defaults */
@@ -134,12 +135,99 @@ h1, h2, h3, h4, h5, h6 {
     transform: translate(-2px, -2px);
 }
 
+.hero-section {
+    position: relative;
+}
+
+/* Profile */
+.hero-section .header {
+    display: flex;
+    justify-content: flex-end;
+    width: 100vw;
+    position: absolute;
+    top: 1rem;
+    right: 1rem;
+}
+
+.hero-section .header .dropdown-profile .profile-container {
+    position: relative;
+    display: none;
+    flex-direction: column;
+} 
+
+.hero-section .header .dropdown-profile .profile-container.active{
+    display: flex;
+}
+
+.hero-section .header .dropdown-profile .profile-container .dropdown-profile-content {
+    position: absolute;
+    top: 100%;
+    right: 50%;
+    display: flex;
+    flex-direction: column;
+    padding: 0.5rem 1rem;
+    cursor: pointer;
+    position: absolute;
+    margin: 0 1rem;
+    background-color: antiquewhite;
+    box-shadow: rgb(38, 57, 77) 0px 20px 30px -10px;
+    border-radius: 10px;
+    border-style: ridge;
+    z-index: 1000;
+    width: auto;
+    height: auto;
+}
+
+.hero-section .header .dropdown-profile {
+    position: relative;
+    align-self: flex-end;
+    margin-top: -2rem;
+    margin-bottom: 1.8rem;
+}
+
+.hero-section .header .dropdown-profile .profile-container .close-profile-btn {
+    position: absolute;
+    top: -2rem;
+    right: 12rem;
+    width: auto;
+    background-color: var(--red);
+    box-shadow: 0px 5px var(--blue), 0px -5px var(--blue), 5px 0px var(--blue), -5px 0px var(--blue), 0px 10px var(--gray), 5px 5px var(--gray), -5px 5px var(--gray), inset 0px 5px var(--lightpink);
+}
+
+.hero-section .header .dropdown-profile .profileBtn {
+    box-shadow: rgb(38, 57, 77) 0px 20px 30px -10px;
+    border-radius: 5rem;
+    border-style: ridge;
+    border-color: #1c1c71;
+    width: 4rem;
+    background-color: #cca76b;
+    transition: transform 0.2s ease, background-color 0.2s ease;
+}
+
+.hero-section .header .dropdown-profile .profileBtn:hover {
+    cursor: pointer;
+    transform: scale(1.05);
+}
+
+.hero-section .header .dropdown-profile .profile-container .dropdown-profile-content a {
+    text-decoration: none;
+    display: block;
+    border-radius: 10px;
+}
+
+.hero-section .header .dropdown-profile .profile-container .dropdown-profile-content a:hover {
+    display: block;
+    background-color: var(--lightgreen);
+    padding: 0 0.5rem;
+    padding-left: 2rem;
+}
+
+
 /* Sorting */
 .hero-section .task-body .task-header {
     display: flex;
     justify-content: flex-end;
     width: 45vw;
-    margin: 1.5rem;
 }
 
 .hero-section .task-body .task-header .dropdown .dropdown-content {
@@ -194,6 +282,10 @@ h1, h2, h3, h4, h5, h6 {
 
 /* Main todo list */
 .hero-section .task-body{
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, 5%);
     display: flex;
     justify-content: center;
     align-items: center;
@@ -202,9 +294,8 @@ h1, h2, h3, h4, h5, h6 {
 }
 
 .hero-section .task-body .tasks-container {
-    margin-top: -2rem;
     width: 45vw;
-    height: 50vh;
+    height: 70vh;
     border: 0.5rem solid var(--blue);
     outline: 0.5rem solid var(--gray);
     border-style: ridge;
@@ -384,9 +475,11 @@ h1, h2, h3, h4, h5, h6 {
 .hero-section .task-body .popup.confirm-delete-popup {
     position: fixed;
     display: hidden;
-    top: 15%;
+    top: 5%;
     left: 50%;
     transform: translate(-50%, -50%);
+    z-index: 1000;
+    width: 25vw;
 }
 
 .hero-section .task-body .popup .confirm-delete-content {
@@ -419,6 +512,7 @@ h1, h2, h3, h4, h5, h6 {
     opacity: 0;
     visibility: hidden;
     transition: opacity 0.3s ease;
+    z-index: 1001;
 }
 
 .popup .toast.active {

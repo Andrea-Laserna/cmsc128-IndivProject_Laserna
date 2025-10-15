@@ -1,0 +1,34 @@
+{% extends 'base.html' %}
+
+{% block title %} Sign Up {% endblock %}
+
+{% block styles %}
+    {{ super() }} <!-- keep base css -->
+    <!-- insert customized css for signup page -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='accounts.css') }}">
+{% endblock %}
+
+{% block body %}
+<form action="/signup" method="POST">
+    <h1>Sign Up</h1>
+    <div class="container">
+        <p>Please fill in this form to create an account.</p>
+
+        <label for="email">Email</label>
+        <input type="text" placeholder="Enter Email" name="email" required>
+
+        <label for="password">Password</label>
+        <input type="text" placeholder="Enter Password" name="password" required>
+
+        <label for="name">Name</label>
+        <input type="text" placeholder="Enter Your Name" name="name" required>
+ 
+        <button type="submit" class="btn accountBtn">Sign Up</button>
+
+        <div class="askAccount askLogin">
+            <p>Already have an account?</p>
+            <a href="/login">Login</a>
+        </div>
+    </div>
+</form>
+{% endblock %}
