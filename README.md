@@ -2,9 +2,9 @@
 
 ## This is Dooby, a to-do list made by Andrea Laserna.
 
-I used Flask and SQLite as backend because I am comfortable with Python and it is easier for me to work with.
+I used Flask and SQLite as backend because I am comfortable with Python and it is easier for me to work with. I've worked with SQLite before in a discord bot I built a year ago...
 
-To run the app, make sure you are in the flask-server directory and run 
+To run the app, make sure you are in the flask-server directory and run the command below in the terminal
 
 ```
 python app.py
@@ -46,6 +46,48 @@ Undo Task Delete:
 ```
 @app.route('/undo_task_delete/<int:id>', methods=['GET', 'POST'])
 def undo_task_delete_route(id):
+```
+
+Sign Up Page:
+```
+@app.route('/signup', methods=['POST', 'GET'])
+def signup():
+```
+
+Login Page:
+```
+@app.route('/login', methods=['POST', 'GET'])
+def login():
+```
+
+Forgot Password:
+```
+@app.route('/forgot_password', methods = ['GET', 'POST'])
+def forgot_password():
+```
+
+Reset Link:
+```
+@app.route('/show_reset_link')
+def show_reset_link():
+```
+
+Reset Password:
+```
+@app.route('/reset_password/<token>', methods=['GET', 'POST'])
+def reset_password(token):
+```
+
+Profile Page:
+```
+@app.route('/profile', methods=['GET', 'POST'])
+def profile():
+```
+
+Logout:
+```
+@app.route('/logout')
+def logout():
 ```
 
 ### And here is the connection to the database:

@@ -300,7 +300,7 @@ def forgot_password():
             # generate token from user email
             token = serializer.dumps(email, salt='password-recovery')
             # generate link with token
-            # profile route will handle the request because it handles both reset and editing of details
+            # reset_password will handle the request
             reset_link = url_for('reset_password', token=token, _external=True)
 
             # show link on page instead of sending email
@@ -312,6 +312,7 @@ def forgot_password():
     # load forgotpwd page first
     return render_template('forgotpwd.html')
 
+# reset link
 @app.route('/show_reset_link')
 def show_reset_link():
     # retrieve reset_link from /forgot_password
@@ -319,15 +320,25 @@ def show_reset_link():
     # pass the link to template to display
     return render_template('resetlink.html', link=link)
 
+# reset password
 @app.route('/reset_password/<token>', methods=['GET', 'POST'])
+# token comes from the reset link
 def reset_password(token):
+    # step 1
     try:
+        # decode token back to original email
+        # salt to ensure it only works for password recovery tokens
         email = serializer.loads(token, salt='password-recovery', max_age=3600)
     except (SignatureExpired, BadSignature):
+        '''
+        SignatureExpired - token is valid but expired
+        BadSignature - token was tampered with or invalid
+        '''
         flash("Invalid or expired reset link.", "error")
         return redirect(url_for('forgot_password'))
 
     if request.method == 'POST':
+        # once the user has submitted their new password
         new_password = request.form['new_password']
         hashed = generate_password_hash(new_password)
 
@@ -340,11 +351,13 @@ def reset_password(token):
         flash("Password reset successful!", "success")
         return redirect(url_for('login'))
 
-    # show the reset form
+    # step 2: show the reset form 
     return render_template('resetpass.html', email=email)
     
+# profile
 @app.route('/profile', methods=['GET', 'POST'])
 def profile():
+    # step 1
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
     user_id = session.get('user_id')
@@ -353,13 +366,15 @@ def profile():
         flash("You need to log in to access your profile.", "error")
         return redirect(url_for('login'))
 
+    # step 3
     if request.method == 'POST':
+        # using get for flexibility - will return none if user did not input anything instead of raising an error 
         name = request.form.get('name')
         new_email = request.form.get('email')
         password = request.form.get('password')
 
-        updates = []
-        params = []
+        updates = [] # list of attributes to update
+        params = [] # list of parameters to replace the value in the query
 
         if name:
             updates.append("name=?")
@@ -371,7 +386,7 @@ def profile():
             params.append(new_email)
             session['email'] = new_email
 
-        if password and password.strip():
+        if password and password.strip(): # using strip to remove trailing white spaces
             hashed = generate_password_hash(password)
             updates.append("password=?")
             params.append(hashed)
@@ -379,7 +394,7 @@ def profile():
         if updates:
             sql = f"UPDATE users SET {', '.join(updates)} WHERE user_id=?"
             params.append(user_id)
-            cursor.execute(sql, tuple(params))
+            cursor.execute(sql, tuple(params)) 
             conn.commit()
             flash("Profile updated successfully!", "success")
         else:
@@ -387,14 +402,14 @@ def profile():
 
         return redirect(url_for('index'))
 
-    # GET request: fetch user info to prefill form
+    # step 2 : GET request - prefill form
     cursor.execute("SELECT name, email FROM users WHERE user_id=?", (user_id,))
     user = cursor.fetchone()
     conn.close()
 
     return render_template('profile.html', user=user)
 
-
+# logout
 @app.route('/logout')
 def logout():
     session.clear()  # removes user_id, username, etc.
