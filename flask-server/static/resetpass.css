@@ -27,7 +27,7 @@ form .container{
     display: flex;
     flex-direction: column;
     width: 20vw;
-    height: 25vh;
+    height: 30vh;
     border: 0.5rem solid var(--blue);
     outline: 0.5rem solid var(--gray);
     border-style: ridge;

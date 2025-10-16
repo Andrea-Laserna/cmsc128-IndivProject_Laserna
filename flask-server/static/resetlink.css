@@ -27,7 +27,7 @@
     display: flex;
     flex-direction: column;
     width: 20vw;
-    height: 30vh;
+    height: 40vh;
     border: 0.5rem solid var(--blue);
     outline: 0.5rem solid var(--gray);
     border-style: ridge;
