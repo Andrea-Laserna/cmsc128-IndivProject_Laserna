@@ -213,13 +213,12 @@ h1, h2, h3, h4, h5, h6 {
     text-decoration: none;
     display: block;
     border-radius: 10px;
+    padding: 0 10px 0 10px;
 }
 
 .hero-section .header .dropdown-profile .profile-container .dropdown-profile-content a:hover {
     display: block;
     background-color: var(--lightgreen);
-    padding: 0 0.5rem;
-    padding-left: 2rem;
 }
 
 
@@ -258,13 +257,12 @@ h1, h2, h3, h4, h5, h6 {
     text-decoration: none;
     display: block;
     border-radius: 10px;
+    padding: 0 10px 0 10px;
 }
 
 .hero-section .task-body .task-header .dropdown .dropdown-content a:hover {
     display: block;
     background-color: var(--lightgreen);
-    padding: 0 0.5rem;
-    padding-left: 2rem;
 }
 
 .hero-section .task-body .task-header .dropdown:hover .dropdown-content{

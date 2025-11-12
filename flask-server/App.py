@@ -31,9 +31,8 @@ def init_db():
             priority TEXT NOT NULL,
             deadline DATETIME NOT NULL,
             created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
-            is_deleted BIT DEFAULT 0,
-            uid INTEGER,
-            FOREIGN KEY (uid) REFERENCES users (user_id)
+            list_id INTEGER,
+            FOREIGN KEY (list_id) REFERENCES lists (list_id)
         )               
     ''')
     cursor.execute('''
@@ -44,13 +43,30 @@ def init_db():
             email TEXT UNIQUE NOT NULL   
         )
     ''')
+    cursor.execute('''
+        CREATE TABLE IF NOT EXISTS lists (
+            list_id INTEGER PRIMARY KEY AUTOINCREMENT,
+            list_name TEXT NOT NULL,
+            owner_id INTEGER NOT NULL,
+            FOREIGN KEY (owner_id) REFERENCES users (user_id) 
+        )       
+    ''')
+    cursor.execute('''
+       CREATE TABLE IF NOT EXISTS list_collaborators (
+            list_id INTEGER NOT NULL,
+            user_id INTEGER NOT NULL,
+            PRIMARY KEY (list_id, user_id),
+            FOREIGN KEY (list_id) REFERENCES lists (list_id),
+            FOREIGN KEY (user_id) REFERENCES users (user_id)
+        )             
+    ''')
     conn.commit()
     conn.close()
 
 # helper functions
 
 # retrieve all tasks with default sorting option
-def get_tasks(sort="created_at", order="desc"):
+def get_tasks(list_id, sort="created_at", order="desc"):
     user_id = session['user_id']
 
     # security purposes lol
@@ -65,30 +81,45 @@ def get_tasks(sort="created_at", order="desc"):
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
 
+    # Check if user is owner of collaborator
+    cursor.execute('''
+        SELECT 1 FROM lists
+        WHERE list_id = ? AND owner_id = ?
+
+        UNION
+                   
+        SELECT 1 FROM list_collaborators
+        WHERE list_id = ? AND user_id = ?
+    ''', (list_id, user_id, list_id, user_id))
+
+    if not cursor.fetchone():
+        conn.close()
+        raise PermissionError("You do not have access to this list.")
+
     if sort == "priority":
         cursor.execute('''
             SELECT * FROM tasks 
-                WHERE uid = ? AND is_deleted = 0
+                WHERE list_id = ? AND is_deleted = 0
                 ORDER BY CASE priority 
                     WHEN 'high' THEN 1
                     WHEN 'medium' THEN 2
                     WHEN 'low' THEN 3
                 END ASC
-            ''', (user_id,))
+            ''', (list_id,))
     else:
-        cursor.execute(f'SELECT * FROM tasks WHERE uid = ? AND is_deleted = 0 ORDER BY {sort} {order.upper()}', (user_id,))
+        cursor.execute(f'SELECT * FROM tasks WHERE list_id = ? AND is_deleted = 0 ORDER BY {sort} {order.upper()}', (list_id,))
 
     tasks = cursor.fetchall()
     cursor.close()
     return tasks
 
 # add a task
-def add_task(task_name, priority, deadline, user_id):
+def add_task(task_name, priority, deadline, list_id):
     conn = sqlite3.connect(DB_path)
     # enable foreign key enforcement
     conn.execute("PRAGMA foreign_keys = ON")
     cursor = conn.cursor()
-    cursor.execute('INSERT INTO tasks (task_name, priority, deadline, uid) VALUES(?, ?, ?, ?)', (task_name, priority, deadline, user_id))
+    cursor.execute('INSERT INTO tasks (task_name, priority, deadline, list_id) VALUES(?, ?, ?, ?)', (task_name, priority, deadline, list_id))
     conn.commit()
     cursor.close()
     conn.close()

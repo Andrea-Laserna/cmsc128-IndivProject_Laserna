@@ -11,9 +11,12 @@ document.addEventListener("DOMContentLoaded", () => {
     const confirmDelBtn = document.querySelectorAll('.confirm-delete-btn');
     const cancelDelBtn = document.querySelectorAll('.cancel-delete-btn');
     const toastPopup = document.querySelector('.toast');
-    const profileBtn = document.querySelector('.profileBtn')
-    const profileDropdown = document.querySelector('.profile-container')
+    const profileBtn = document.querySelector('.profileBtn');
+    const profileDropdown = document.querySelector('.profile-container');
     const closeProfile = document.querySelector('.close-profile-btn');
+    const collabBtn = document.querySelector('.collabBtn');
+    const collabDropdown = document.querySelector('.collab-container');
+    const closeCollab = document.querySelector('.close-collab-btn');
 
     if (toastPopup) {
         toastPopup.classList.add('active');
@@ -30,6 +33,15 @@ document.addEventListener("DOMContentLoaded", () => {
 
     closeProfile.addEventListener("click", () => {
         profileDropdown.classList.remove("active");
+    });
+    
+    // Collab
+    collabBtn.addEventListener("click", () => {
+        collabDropdown.classList.add('active');
+    })
+
+    closeCollab.addEventListener("click", () => {
+        collabDropdown.classList.remove("active");
     });
 
     // Fields inside edit popup
