@@ -219,6 +219,19 @@ def user_exists(name, email):
     conn.close()
     return user
 
+def get_collaborators(list_id):
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT u.user_id, u.name, u.email
+        FROM list_collaborators lc
+        JOIN users u ON lc.user_id = u.user_id
+        WHERE lc.list_id = ?
+    ''', (list_id,))
+    collaborators = cursor.fetchall()
+    conn.close()
+    return collaborators
+
 # flask connections
 
 # home page
@@ -261,11 +274,13 @@ def index():
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
     cursor.execute('''
-        SELECT l.list_id, l.list_name 
+        SELECT l.list_id, l.list_name, u.name AS owner_name
         FROM lists l
+        JOIN users u ON l.owner_id = u.user_id
         LEFT JOIN list_collaborators lc ON l.list_id = lc.list_id
         WHERE l.owner_id = ? OR lc.user_id = ?
     ''', (user_id, user_id))
+
     lists = cursor.fetchall()
     conn.close()
 
@@ -321,24 +336,54 @@ def add_task_route():
     except sqlite3.IntegrityError:
         flash("Login to add task.")
         return redirect(url_for('login'))
-    return redirect(url_for('index')) 
+    return redirect(url_for('index', list_id=list_id)) 
 
 # edit tasks
-@app.route('/update_task/<int:task_id>', methods=['GET', 'POST'])
+@app.route('/update_task/<int:task_id>', methods=['POST'])
 def edit_task_route(task_id):
+    user_id = session['user_id']
     task_name = request.form['task_name']
     priority = request.form['priority']
     deadline = request.form['deadline']
+
+    # Try to get list_id from form
+    list_id = request.form.get('list_id')
+    if list_id:
+        list_id = int(list_id)
+    else:
+        # Fallback: fetch list_id from the task itself
+        conn = sqlite3.connect(DB_path)
+        cursor = conn.cursor()
+        cursor.execute('SELECT list_id FROM tasks WHERE task_id=?', (task_id,))
+        row = cursor.fetchone()
+        conn.close()
+        if row:
+            list_id = row[0]
+        else:
+            list_id = get_default_list_id(user_id)
+
     edit_task(task_id, task_name, priority, deadline)
-    return redirect(url_for('index')) 
+    return redirect(url_for('index', list_id=list_id))
 
 # delete tasks
 @app.route('/delete_task/<int:task_id>', methods=['GET']) 
 def delete_task_route(task_id):
+    # fetch the list_id of this task
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    cursor.execute('SELECT list_id FROM tasks WHERE task_id=?', (task_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        flash("Task not found.", "error")
+        return redirect(url_for('index'))
+    
+    list_id = row[0]
+    conn.close()
     delete_task(task_id)
     # toast
     flash(f"Task deleted! <a href='{url_for('undo_task_delete_route', task_id=task_id)}' class='btn undo-btn'>Undo</a>", "undo")
-    return redirect(url_for('index'))
+    return redirect(url_for('index', list_id=list_id)) 
 
 # toggle tasks
 @app.route('/toggle_task/<int:task_id>', methods=['POST'])
@@ -350,8 +395,20 @@ def toggle_task_route(task_id):
 # undo task delete
 @app.route('/undo_task_delete/<int:task_id>', methods=['GET', 'POST'])
 def undo_task_delete_route(task_id):
+    # fetch the list_id of this task
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    cursor.execute('SELECT list_id FROM tasks WHERE task_id=?', (task_id,))
+    row = cursor.fetchone()
+    if not row:
+        conn.close()
+        flash("Task not found.", "error")
+        return redirect(url_for('index'))
+    
+    list_id = row[0]
+    conn.close()
     undo_task_delete(task_id)
-    return redirect(url_for('index')) 
+    return redirect(url_for('index', list_id=list_id)) 
 
 # sign up page
 @app.route('/signup', methods=['POST', 'GET'])
@@ -526,6 +583,136 @@ def profile():
     conn.close()
 
     return render_template('profile.html', user=user)
+
+@app.route('/create_list', methods=['POST'])
+def create_list():
+    if 'user_id' not in session:
+        flash("Please login first.", "error")
+        return redirect(url_for('login'))
+
+    list_name = request.form.get('list_name', '').strip()
+    if not list_name:
+        flash("List name cannot be empty.", "error")
+        return redirect(url_for('collaboration'))
+
+    user_id = session['user_id']
+
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    cursor.execute('INSERT INTO lists (list_name, owner_id) VALUES (?, ?)', (list_name, user_id))
+    conn.commit()
+    conn.close()
+
+    flash(f"List '{list_name}' created successfully!", "success")
+    return redirect(url_for('collaboration'))
+
+@app.route('/collaboration')
+def collaboration():
+    if 'user_id' not in session:
+        flash("Please login to view your lists.")
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+
+    # Optional: get current_list_id from query param
+    current_list_id = request.args.get('list_id')
+    if current_list_id:
+        try:
+            current_list_id = int(current_list_id)
+        except ValueError:
+            current_list_id = None
+
+    # fetch all owned and collaborated lists
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT l.list_id, l.list_name, u.name AS owner_name
+        FROM lists l
+        JOIN users u ON l.owner_id = u.user_id
+        LEFT JOIN list_collaborators lc ON l.list_id = lc.list_id
+        WHERE l.owner_id = ? OR lc.user_id = ?
+        GROUP BY l.list_id
+        ORDER BY l.list_id ASC
+    ''', (user_id, user_id))
+    lists = cursor.fetchall()
+    conn.close()
+
+    return render_template('collaboration.html', lists=lists, current_list_id=current_list_id, get_collaborators=get_collaborators)
+
+
+@app.route('/add_collaborator', methods=['POST'])
+def add_collaborator():
+    if 'user_id' not in session:
+        flash("Please login first.", "error")
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    list_id = int(request.form['list_id'])
+    collaborator_email = request.form['collaborator_email']
+
+    # verify if the current user owns the list
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    cursor.execute('SELECT owner_id FROM lists WHERE list_id=?', (list_id,))
+    owner = cursor.fetchone()
+    if not owner or owner[0] != user_id:
+        flash("You do not have permission to add collaborators.", "error")
+        conn.close()
+        return redirect(url_for('index', list_id=list_id))
+
+    # find the collaborator user_id by email
+    cursor.execute('SELECT user_id FROM users WHERE email=?', (collaborator_email,))
+    collaborator = cursor.fetchone()
+    if not collaborator:
+        flash("User not found.", "error")
+        conn.close()
+        return redirect(url_for('index', list_id=list_id))
+
+    collaborator_id = collaborator[0]
+
+    # prevent adding self
+    if collaborator_id == user_id:
+        flash("You cannot add yourself as collaborator.", "info")
+        conn.close()
+        return redirect(url_for('index', list_id=list_id))
+
+    # add collaborator if not already exists
+    try:
+        cursor.execute('INSERT INTO list_collaborators (list_id, user_id) VALUES (?, ?)', (list_id, collaborator_id))
+        conn.commit()
+        flash(f"Added collaborator: {collaborator_email}", "success")
+    except sqlite3.IntegrityError:
+        flash("User is already a collaborator.", "info")
+
+    conn.close()
+    return redirect(url_for('index', list_id=list_id))
+
+@app.route('/remove_collaborator', methods=['POST'])
+def remove_collaborator():
+    if 'user_id' not in session:
+        flash("Please login first.", "error")
+        return redirect(url_for('login'))
+
+    user_id = session['user_id']
+    list_id = int(request.form['list_id'])
+    collaborator_id = int(request.form['collaborator_id'])
+
+    # verify if the current user owns the list
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    cursor.execute('SELECT owner_id FROM lists WHERE list_id=?', (list_id,))
+    owner = cursor.fetchone()
+    if not owner or owner[0] != user_id:
+        flash("You do not have permission to remove collaborators.", "error")
+        conn.close()
+        return redirect(url_for('index', list_id=list_id))
+
+    # remove collaborator
+    cursor.execute('DELETE FROM list_collaborators WHERE list_id=? AND user_id=?', (list_id, collaborator_id))
+    conn.commit()
+    conn.close()
+    flash("Collaborator removed successfully.", "success")
+    return redirect(url_for('index', list_id=list_id))
 
 # logout
 @app.route('/logout')
