@@ -29,9 +29,10 @@ def init_db():
             task_name TEXT NOT NULL,
             isChecked BIT DEFAULT 0,
             priority TEXT NOT NULL,
-            deadline DATETIME NOT NULL,
+            deadline DATETIME NOT NULL, 
             created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
             list_id INTEGER,
+            is_deleted BIT DEFAULT 0,
             FOREIGN KEY (list_id) REFERENCES lists (list_id)
         )               
     ''')
@@ -167,9 +168,28 @@ def signup_user(name, password, email):
     # encryot password before saving to database
     hashwed_pwd = generate_password_hash(password)
     cursor.execute('INSERT INTO users (name, password, email) VALUES(?, ?, ?)', (name, hashwed_pwd, email))
+
+    # get newly created user_id
+    user_id = cursor.lastrowid
+    # create default list
+    cursor.execute('INSERT INTO lists (list_name, owner_id) VALUES(?, ?)', ("My Task", user_id))
+
     conn.commit()
     cursor.close()
     conn.close()
+
+    return user_id
+
+def get_default_list_id(user_id):
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    # fetch the first list created by the user (default list)
+    cursor.execute('SELECT list_id FROM lists WHERE owner_id=? ORDER BY list_id ASC LIMIT 1', (user_id,))
+    row = cursor.fetchone()
+    conn.close()
+    if row:
+        return row[0]
+    return None
 
 # retrieve all details
 def get_user(name):
@@ -209,12 +229,48 @@ def index():
         flash("Please login to add tasks.")
         return redirect(url_for('login'))
 
+    user_id = session['user_id']
+
     sort = request.args.get("sort", "created_at")
     order = request.args.get("order", "desc")
-    tasks = get_tasks(sort, order) # includes sorting and order option
+
+    # get list id from params
+    list_id = request.args.get("list_id")
+    if list_id:
+        try:
+            list_id = int(list_id)
+        except ValueError:
+            flash("Invalid list selected.")
+            return redirect(url_for('index'))  # safer to redirect to a dashboard or create-list page
+    else:
+        list_id = get_default_list_id(user_id)
+
+    if not list_id:
+        # Redirect somewhere safe, not back to index
+        flash("No list available. Please create a list first.")
+        return render_template("index.html", tasks=[], lists=[], current_list_id=None, name=session['name'], email=session['email'])
+
+    try:
+        tasks = get_tasks(list_id, sort, order)
+    except PermissionError:
+        flash("You do not have access to this list.")
+        tasks = []  # show empty tasks instead of redirecting
+
+
+    # fetch all owned and collaborated lists
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT l.list_id, l.list_name 
+        FROM lists l
+        LEFT JOIN list_collaborators lc ON l.list_id = lc.list_id
+        WHERE l.owner_id = ? OR lc.user_id = ?
+    ''', (user_id, user_id))
+    lists = cursor.fetchall()
+    conn.close()
 
     # pass the session values explicitly from login details
-    return render_template("index.html", tasks=tasks, name=session['name'], email=session['email'])
+    return render_template("index.html", tasks=tasks, lists=lists, current_list_id=int(list_id), name=session['name'], email=session['email'])
 
 # adding tasks
 @app.route('/add_task', methods=['POST'])
@@ -228,12 +284,43 @@ def add_task_route():
     task_name = request.form['task_name']
     priority = request.form['priority']
     deadline = request.form['deadline']
+
+    # get list_id from form, fallback to default list
+    list_id = request.form.get('list_id')
+    # if user submitted a list_id in the form
+    if not list_id:
+        list_id = get_default_list_id(user_id)
+
+    # if get default list returns None
+    if not list_id:
+        flash("No list available to add the task.")
+        return redirect(url_for('index'))
+
+    # check if user has access to list: owner or collaborator
+    conn = sqlite3.connect(DB_path)
+    cursor = conn.cursor()
+    cursor.execute('''
+        SELECT 1 FROM lists
+        WHERE list_id = ? AND owner_id = ?
+        UNION
+        SELECT 1 FROM list_collaborators
+        WHERE list_id = ? AND user_id = ?
+    ''', (list_id, user_id, list_id, user_id))
+
+    if not cursor.fetchone():
+        conn.close()
+        flash("You do not have access to this list.")
+        return redirect(url_for('index'))
+
+    conn.close()
+
+    # add the task
     try:
-        add_task(task_name, priority, deadline, user_id)
+        add_task(task_name, priority, deadline, list_id)
+        flash("Task addded successfully!")
     except sqlite3.IntegrityError:
         flash("Login to add task.")
         return redirect(url_for('login'))
-
     return redirect(url_for('index')) 
 
 # edit tasks

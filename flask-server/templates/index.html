@@ -65,6 +65,17 @@
                 {% endif %}
             </ul>
         </div>
+        <div class="lists">
+            <strong>Your Lists:</strong>
+            {% for l in lists %}
+                {% set lid, lname = l %}
+                <a href="{{ url_for('index', list_id=lid) }}"
+                class="{% if lid == current_list_id %}active{% endif %}">
+                {{ lname }}
+                </a>
+            {% endfor %}
+        </div>
+
         <div class="popup confirm-delete-popup" id="confirm-delete-popup">
             <div class="confirm-delete-content">
                 <p>Are you sure you want to delete this task?</p>
@@ -92,7 +103,8 @@
 
                     <label for="deadline">Deadline:</label><br>
                     <input type="datetime-local" id="deadline" name="deadline" value="2025-09-10T14:30" required><br>
-
+                    
+                    <input type="hidden" name="list_id" value="{{ current_list_id }}">
                     <input type="submit" class="btn submit-btn" value="Submit">
                 </form>
             </div>
