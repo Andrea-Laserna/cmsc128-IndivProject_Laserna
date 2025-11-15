@@ -10,42 +10,47 @@
 .collab-form { margin-top: 5px; padding: 5px; border: 1px solid #ccc; border-radius: 5px; }
 .collab-form ul { list-style-type: disc; margin-left: 20px; }
 .collab-form li { margin-bottom: 3px; }
-.shared { color: gray; }
+.shared { color: rgb(102, 24, 72); }
 .active { font-weight: bold; color: blue; }
 </style>
 {% endblock %}
 
 {% block body %}
 <div class="lists">
-    <strong>Your Lists:</strong>
+    <h1>Your Lists:</h1>
 
-    {% for l in lists %}
-        {% set lid, lname, owner_name = l %}
+    {% for list in lists %}
+        {% set lid, lname, owner_name = list %}
         <div class="list-item">
+            <!-- .active if list is currently selected
+                .shared if user does not own the list -->
             <a href="{{ url_for('index', list_id=lid) }}"
                class="{% if lid == current_list_id %}active{% endif %} {% if owner_name != session.name %}shared{% endif %}">
+               <!-- if user is not the owner, show by owner_name -->
                {{ lname }} {% if owner_name != session.name %}(by {{ owner_name }}){% endif %}
             </a>
 
+            <!-- manage collaborators accessible by the owner only -->
             {% if owner_name == session.name %}
                 <button class="collab-btn" onclick="toggleCollabForm({{ lid }})">Manage Collaborators</button>
 
                 <div class="collab-form" id="collab-form-{{ lid }}" style="display:none;">
-                    <!-- Add collaborator -->
+                    <!-- add collaborator form -->
                     <form action="{{ url_for('add_collaborator') }}" method="POST">
                         <input type="hidden" name="list_id" value="{{ lid }}">
                         <input type="email" name="collaborator_email" placeholder="Collaborator Email" required>
                         <button type="submit">Add</button>
                     </form>
 
-                    <!-- List current collaborators -->
+                    <!-- list current collaborators -->
                     <ul>
-                        {% for c in get_collaborators(lid) %}
+                        {% for collaborator in get_collaborators(lid) %}
                             <li>
-                                {{ c[1] }} ({{ c[2] }})
+                                <!-- user name, user email -->
+                                {{ collaborator[1] }} ({{ collaborator[2] }})
                                 <form action="{{ url_for('remove_collaborator') }}" method="POST" style="display:inline;">
                                     <input type="hidden" name="list_id" value="{{ lid }}">
-                                    <input type="hidden" name="collaborator_id" value="{{ c[0] }}">
+                                    <input type="hidden" name="collaborator_id" value="{{ collaborator[0] }}">
                                     <button type="submit">Remove</button>
                                 </form>
                             </li>
@@ -71,7 +76,17 @@
 <script>
 function toggleCreateListForm() {
     const form = document.getElementById("create-list-form");
-    form.style.display = (form.style.display === "none") ? "block" : "none";
+    if (!form) return; // safety
+    
+    // check if form is hidden or not set yet
+    // if hidden show it, if visible hide it : toggle between show and hide
+    form.style.display = (form.style.display === "none" || form.style.display === "") ? "block" : "none";
+}
+function toggleCollabForm(listId) {
+    const form = document.getElementById(`collab-form-${listId}`);
+    if (!form) return;  // safety check
+    form.style.display = (form.style.display === "none" || form.style.display === "") ? "block" : "none";
 }
 </script>
+
 {% endblock %}

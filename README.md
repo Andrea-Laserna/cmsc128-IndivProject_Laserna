@@ -90,6 +90,30 @@ Logout:
 def logout():
 ```
 
+Create List:
+```
+@app.route('/create_list', methods=['POST'])
+def create_list():
+```
+
+Collaboration:
+```
+@app.route('/collaboration')
+def collaboration():
+```
+
+Add Collaborator:
+```
+@app.route('/add_collaborator', methods=['POST'])
+def add_collaborator():
+```
+
+Remove Collaborator:
+```
+@app.route('/remove_collaborator', methods=['POST'])
+def remove_collaborator():
+```
+
 ### And here is the connection to the database:
 
 ```

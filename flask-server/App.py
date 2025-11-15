@@ -1,3 +1,4 @@
+from ast import If
 from flask import Flask, flash, render_template, request, redirect, url_for, session
 from datetime import datetime
 from dotenv import load_dotenv
@@ -82,7 +83,7 @@ def get_tasks(list_id, sort="created_at", order="desc"):
     conn = sqlite3.connect(DB_path)
     cursor = conn.cursor()
 
-    # Check if user is owner of collaborator
+    # check if user is owner of collaborator
     cursor.execute('''
         SELECT 1 FROM lists
         WHERE list_id = ? AND owner_id = ?
@@ -172,7 +173,7 @@ def signup_user(name, password, email):
     # get newly created user_id
     user_id = cursor.lastrowid
     # create default list
-    cursor.execute('INSERT INTO lists (list_name, owner_id) VALUES(?, ?)', ("My Task", user_id))
+    cursor.execute('INSERT INTO lists (list_name, owner_id) VALUES(?, ?)', ("My Dooby List", user_id))
 
     conn.commit()
     cursor.close()
@@ -251,18 +252,21 @@ def index():
     list_id = request.args.get("list_id")
     if list_id:
         try:
+            # since URL parameters are strings, convert to integer
             list_id = int(list_id)
         except ValueError:
             flash("Invalid list selected.")
-            return redirect(url_for('index'))  # safer to redirect to a dashboard or create-list page
+            return redirect(url_for('index'))  # safer to redirect to a create list page
     else:
         list_id = get_default_list_id(user_id)
 
+    # if get_default_list_id returned None (user has no lists)
     if not list_id:
-        # Redirect somewhere safe, not back to index
         flash("No list available. Please create a list first.")
+        # send the other variables to index.html
         return render_template("index.html", tasks=[], lists=[], current_list_id=None, name=session['name'], email=session['email'])
 
+    # fetch tasks of that list
     try:
         tasks = get_tasks(list_id, sort, order)
     except PermissionError:
@@ -300,10 +304,11 @@ def add_task_route():
     priority = request.form['priority']
     deadline = request.form['deadline']
 
-    # get list_id from form, fallback to default list
+    # get list_id from form
     list_id = request.form.get('list_id')
-    # if user submitted a list_id in the form
+    # if form did not include list_id
     if not list_id:
+        # fall back to default
         list_id = get_default_list_id(user_id)
 
     # if get default list returns None
@@ -322,7 +327,7 @@ def add_task_route():
         WHERE list_id = ? AND user_id = ?
     ''', (list_id, user_id, list_id, user_id))
 
-    if not cursor.fetchone():
+    if not cursor.fetchone(): # if row empty
         conn.close()
         flash("You do not have access to this list.")
         return redirect(url_for('index'))
@@ -336,6 +341,7 @@ def add_task_route():
     except sqlite3.IntegrityError:
         flash("Login to add task.")
         return redirect(url_for('login'))
+    # remain in the same list page
     return redirect(url_for('index', list_id=list_id)) 
 
 # edit tasks
@@ -346,19 +352,21 @@ def edit_task_route(task_id):
     priority = request.form['priority']
     deadline = request.form['deadline']
 
-    # Try to get list_id from form
+    # get hidden list_id from form
     list_id = request.form.get('list_id')
     if list_id:
         list_id = int(list_id)
     else:
-        # Fallback: fetch list_id from the task itself
+        # fallback: fetch list_id from the task itself
         conn = sqlite3.connect(DB_path)
         cursor = conn.cursor()
         cursor.execute('SELECT list_id FROM tasks WHERE task_id=?', (task_id,))
         row = cursor.fetchone()
         conn.close()
+        # if match, convert
         if row:
             list_id = row[0]
+        # if no match in db, fall back to default list_id
         else:
             list_id = get_default_list_id(user_id)
 
@@ -376,13 +384,14 @@ def delete_task_route(task_id):
     if not row:
         conn.close()
         flash("Task not found.", "error")
-        return redirect(url_for('index'))
+        return redirect(url_for('index')) # fall back to default
     
     list_id = row[0]
     conn.close()
+
     delete_task(task_id)
-    # toast
     flash(f"Task deleted! <a href='{url_for('undo_task_delete_route', task_id=task_id)}' class='btn undo-btn'>Undo</a>", "undo")
+
     return redirect(url_for('index', list_id=list_id)) 
 
 # toggle tasks
@@ -403,11 +412,13 @@ def undo_task_delete_route(task_id):
     if not row:
         conn.close()
         flash("Task not found.", "error")
-        return redirect(url_for('index'))
+        return redirect(url_for('index')) # fall back to default
     
     list_id = row[0]
     conn.close()
+    
     undo_task_delete(task_id)
+
     return redirect(url_for('index', list_id=list_id)) 
 
 # sign up page
@@ -584,12 +595,17 @@ def profile():
 
     return render_template('profile.html', user=user)
 
+
+# === COLLABORATION ===
+
+# create list
 @app.route('/create_list', methods=['POST'])
 def create_list():
     if 'user_id' not in session:
         flash("Please login first.", "error")
         return redirect(url_for('login'))
 
+    # '' - default value if list name not found
     list_name = request.form.get('list_name', '').strip()
     if not list_name:
         flash("List name cannot be empty.", "error")
@@ -606,6 +622,7 @@ def create_list():
     flash(f"List '{list_name}' created successfully!", "success")
     return redirect(url_for('collaboration'))
 
+# collaboration
 @app.route('/collaboration')
 def collaboration():
     if 'user_id' not in session:
@@ -614,7 +631,7 @@ def collaboration():
 
     user_id = session['user_id']
 
-    # Optional: get current_list_id from query param
+    # read list_id from url
     current_list_id = request.args.get('list_id')
     if current_list_id:
         try:

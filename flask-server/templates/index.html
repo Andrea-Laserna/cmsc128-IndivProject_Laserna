@@ -33,9 +33,9 @@
             <div class="dropdown">
                 <button class="btn sort-btn">Sort By <i class="fa fa-caret-down"></i></button>
                 <div class="dropdown-content">
-                    <a href="/?sort=priority">Priority (Highest)</a><hr>
-                    <a href="/?sort=created_at&order=desc">Date of Creation (Most Recent)</a><hr>
-                    <a href="/?sort=deadline&order=asc">Deadline (Earliest)</a>
+                    <a href="{{ url_for('index', list_id=current_list_id, sort='priority') }}">Priority (Highest)</a>
+                    <a href="{{ url_for('index', list_id=current_list_id, sort='created_at', order='desc') }}">Date of Creation</a>
+                    <a href="{{ url_for('index', list_id=current_list_id, sort='deadline', order='asc') }}">Deadline</a>
                 </div>
             </div>
         </div>
