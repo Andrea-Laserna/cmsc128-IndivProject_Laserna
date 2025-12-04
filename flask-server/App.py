@@ -1,11 +1,12 @@
 from ast import If
-from flask import Flask, flash, render_template, request, redirect, url_for, session
+from flask import Flask, flash, render_template, request, redirect, url_for, session, make_response
 from datetime import datetime
 from dotenv import load_dotenv
 import os
 import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
+from functools import wraps
 
 # load variables from .env
 load_dotenv()
@@ -64,6 +65,20 @@ def init_db():
     ''')
     conn.commit()
     conn.close()
+
+# prevent caching for ALL responses
+@app.after_request
+def add_header(response):
+    # This ensures that the response is treated as a proper Response object 
+    # before we try to set headers
+    response = make_response(response) 
+    
+    # Set headers to prevent caching by the browser
+    response.headers['Cache-Control'] = 'no-cache, no-store, must-revalidate, max-age=0'
+    response.headers['Pragma'] = 'no-cache'
+    response.headers['Expires'] = '0'
+    
+    return response
 
 # helper functions
 
@@ -248,7 +263,7 @@ def index():
     sort = request.args.get("sort", "created_at")
     order = request.args.get("order", "desc")
 
-    # get list id from params
+    # get list id from url query string /?list_id=7
     list_id = request.args.get("list_id")
     if list_id:
         try:
@@ -446,6 +461,8 @@ def signup():
 # login page
 @app.route('/login', methods=['POST', 'GET'])
 def login():
+    if 'user_id' in session:
+        return redirect(url_for('index'))
     if request.method == 'POST':
         # user submitted the form
         name = request.form['name']

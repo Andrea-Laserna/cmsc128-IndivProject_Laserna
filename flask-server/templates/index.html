@@ -14,6 +14,7 @@
         <h1>Welcome to<br><span>Dooby!</span></h1>
     </div>
     <div class="header">
+        <p><a href="{{ url_for('collaboration') }}"><img src="../static/images/collab.png" class="collab-link"></a>
         <div class="dropdown-profile">
             <img src="../static/images/profile.png" class="profileBtn">
             <div class="profile-container">
@@ -22,7 +23,6 @@
                     <h2>Hello, {{ name }}</h2>
                     <p>{{ email }}</p>
                     <a href="{{ url_for('profile') }}">Edit Profile</a>
-                    <a href="{{ url_for('collaboration') }}" class="collab-link">Collaborations</a>
                     <a href="{{ url_for('logout') }}" class="logout-btn">Log Out</a>
                 </div>
             </div>
