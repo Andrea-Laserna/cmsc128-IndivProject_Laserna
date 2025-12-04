@@ -8,9 +8,6 @@
 .reset-container {
     width: 100vw;
     height: 100vh;
-    min-width: 80vw;
-    min-height: 20vw;
-    max-height: 40vw;
     display: flex;
     justify-content: center;
     flex-direction: column;
@@ -29,8 +26,12 @@
 .reset-container .container{
     display: flex;
     flex-direction: column;
-    width: 20vw;
-    height: 40vh;
+    width: auto;
+    min-width: 25vw;
+    max-width: 30vw;
+    min-height: 30vh;
+    max-height: 40vh;
+    height: auto;
     border: 0.5rem solid var(--blue);
     outline: 0.5rem solid var(--gray);
     border-style: ridge;

@@ -20,8 +20,8 @@ form .container{
     display: flex;
     flex-direction: column;
     width: auto;
-    min-width: 15vw;
-    max-width: 20vw;
+    min-width: 25vw;
+    max-width: 30vw;
     min-height: 40vh;
     max-height: 80vh;
     height: auto;

@@ -1,0 +1,157 @@
+.back {
+    position: absolute;
+    top: 1rem;
+    left: 1rem;
+    text-decoration: none;
+}
+
+.lists {
+    width: 100vw;
+    height: 100vh;
+    display: flex;
+    justify-content: center;
+    flex-direction: column;
+    align-items: center;
+}
+
+.lists h1 {
+    align-self: center;
+    text-align: center;
+    margin-bottom: 1rem;
+    font-family: Daydream;
+    color: var(--navy);
+    font-size: 1.75rem;
+}
+
+.lists .container{
+    display: flex;
+    flex-direction: column;
+    width: auto;
+    min-width: 40vw;
+    max-width: 60vw;
+    min-height: 60vh;
+    max-height: 70vh;
+    height: auto;
+    border: 0.5rem solid var(--blue);
+    outline: 0.5rem solid var(--gray);
+    border-style: ridge;
+    border-radius: 10px;
+    padding: 2rem;
+    background-color: var(--lightgreen);
+    gap: 2rem;
+    overflow-y: auto;
+}
+
+.list-item { 
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+}
+
+.btn.collab-btn { 
+    margin-left: 10px;
+    font-size: 0.9rem; 
+    max-height: 1.75rem;
+    background-color: var(--lightblue);
+    box-shadow: 0px 5px var(--blue), 0px -5px var(--blue), 5px 0px var(--blue), -5px 0px var(--blue), 0px 10px var(--gray), 5px 5px var(--gray), -5px 5px var(--gray), inset 0px 5px rgb(234, 253, 255);
+}
+
+.collab-form {
+    /* Use a background color to visually separate it from the list item */
+    padding: 10px;
+    /* Ensure it doesn't span wildly wide */
+    width: 100%; 
+}
+
+.collab-form form {
+    display: flex;
+    flex-direction: row; /* Arrange items horizontally */
+    align-items: center;
+    gap: 5px; /* Space between input and button */
+    margin-bottom: 10px; /* Space before the collaborators list */
+}
+
+.collab-form input[type="email"] {
+    padding: 5px;
+    border: 1px solid var(--gray);
+    border-radius: 4px;
+}
+
+.collab-form form button[type="submit"] {
+    padding: 5px 10px;
+    font-size: 0.8rem;
+}
+
+.collab-form ul {
+    list-style-type: none; /* Remove default bullet points */
+    padding: 0; /* Remove default padding */
+    margin: 0;
+}
+
+.collab-form li {
+    display: flex;
+    justify-content: space-between; /* Pushes the 'Remove' button to the right */
+    align-items: center;
+    padding: 3px 0;
+    font-size: 0.9rem;
+    /* Add a subtle line to separate collaborators */
+    border-bottom: 1px dashed var(--gray); 
+}
+
+.collab-form li:last-child {
+    border-bottom: none; /* Remove border from the last item */
+}
+
+/* Style for the inline 'Remove' button form */
+.collab-form li form {
+    margin: 0;
+    display: inline;
+}
+
+.collab-form li button[type="submit"] {
+    background-color: var(--red);
+    color: white;
+    padding: 3px 6px;
+    border: none;
+    border-radius: 4px;
+    cursor: pointer;
+    font-size: 0.75rem;
+}
+
+.shared { color: rgb(102, 24, 72); }
+.active { font-weight: bold; color: blue; }
+
+.btn.new-list-btn {
+    margin: 2rem;
+}
+
+form {
+    z-index: 1000;
+}
+
+
+/* Styling for the New List Form Wrapper */
+#create-list-form {
+    background-color: var(--purple); /* Use a light background to see it */
+    padding: 10px;
+    border: 2px solid var(--blue);
+    border-radius: 8px;
+    max-width: 30vw;
+    width: 100%;
+    box-sizing: border-box;
+    align-self: center; 
+}
+
+#create-list-form form {
+    display: flex;
+    flex-direction: row; 
+    align-items: center;
+    gap: 10px;
+}
+
+#create-list-form input[type="text"] {
+    flex-grow: 1; /* Make the input fill available space */
+    padding: 8px;
+    border: 1px solid var(--gray);
+    border-radius: 4px;
+}
