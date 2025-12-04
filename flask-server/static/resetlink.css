@@ -8,6 +8,9 @@
 .reset-container {
     width: 100vw;
     height: 100vh;
+    min-width: 80vw;
+    min-height: 20vw;
+    max-height: 40vw;
     display: flex;
     justify-content: center;
     flex-direction: column;

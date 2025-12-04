@@ -26,8 +26,12 @@ form h1 {
 form .container{
     display: flex;
     flex-direction: column;
-    width: 20vw;
-    height: 45vh;
+    width: auto;
+    min-width: 15vw;
+    max-width: 20vw;
+    min-height: 30vh;
+    max-height: 50vh;
+    height: auto;
     border: 0.5rem solid var(--blue);
     outline: 0.5rem solid var(--gray);
     border-style: ridge;
