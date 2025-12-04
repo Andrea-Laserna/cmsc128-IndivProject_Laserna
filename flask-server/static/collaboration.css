@@ -57,7 +57,6 @@
 }
 
 .collab-form {
-    /* Use a background color to visually separate it from the list item */
     padding: 10px;
     /* Ensure it doesn't span wildly wide */
     width: 100%; 
