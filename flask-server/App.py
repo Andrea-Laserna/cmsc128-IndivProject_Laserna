@@ -66,6 +66,8 @@ def init_db():
     conn.commit()
     conn.close()
 
+init_db()
+
 # prevent caching for ALL responses
 @app.after_request
 def add_header(response):
