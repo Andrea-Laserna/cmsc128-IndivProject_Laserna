@@ -441,6 +441,9 @@ def undo_task_delete_route(task_id):
 # sign up page
 @app.route('/signup', methods=['POST', 'GET'])
 def signup():
+    # If user already logged in, don't allow access to signup page (prevents Back showing signup)
+    if 'user_id' in session:
+        return redirect(url_for('index'))
     if request.method == 'POST':
         # Request the following from the form to add to database
         email = request.form['email']
@@ -497,6 +500,9 @@ def login():
 # forgot password
 @app.route('/forgot_password', methods = ['GET', 'POST'])
 def forgot_password():
+    # If user already logged in, redirect to index (no need to recover password)
+    if 'user_id' in session:
+        return redirect(url_for('index'))
     if request.method == 'POST':
         email = request.form['email']
         user = get_user_email(email)
