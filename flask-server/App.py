@@ -1,12 +1,13 @@
-from ast import If
 from flask import Flask, flash, render_template, request, redirect, url_for, session, make_response
 from datetime import datetime
 from dotenv import load_dotenv
 import os
-import sqlite3
 from werkzeug.security import generate_password_hash, check_password_hash
 from itsdangerous import URLSafeTimedSerializer, SignatureExpired, BadSignature
 from functools import wraps
+from flask_sqlalchemy import SQLAlchemy
+from sqlalchemy.exc import IntegrityError
+from sqlalchemy.pool import NullPool
 
 # load variables from .env
 load_dotenv()
@@ -17,56 +18,112 @@ app.secret_key = os.getenv("SECRET_KEY") or "dev_secret_key"
 
 # generate and verify secure tokens 
 # use the secret key to cryptographically sign my tokens so nobody can forge them
-serializer = URLSafeTimedSerializer(app.secret_key) 
+serializer = URLSafeTimedSerializer(app.secret_key)
 
-DB_path = 'tasks.db'
+
+def _ensure_sslmode(db_url: str) -> str:
+    """Ensure sslmode=require is present for Supabase/Render Postgres."""
+    if not db_url:
+        return db_url
+    # If query already present
+    if "?" in db_url:
+        if "sslmode=" not in db_url:
+            return f"{db_url}&sslmode=require"
+        return db_url
+    # No query string yet
+    return f"{db_url}?sslmode=require"
+
+
+def _build_db_url_from_parts() -> str | None:
+    """Build a SQLAlchemy Postgres URL from env parts, supporting both DB_* and lowercase keys."""
+    user = os.getenv("DB_USER") or os.getenv("user")
+    password = os.getenv("DB_PASSWORD") or os.getenv("password")
+    host = os.getenv("DB_HOST") or os.getenv("host")
+    port = os.getenv("DB_PORT") or os.getenv("port") or "5432"
+    name = os.getenv("DB_NAME") or os.getenv("dbname")
+
+    if all([user, password, host, port, name]):
+        return f"postgresql+psycopg2://{user}:{password}@{host}:{port}/{name}"
+    return None
+
+
+# Prefer a full DATABASE_URL (as on Render), but if it's the legacy
+# 'db.supabase.co' host and we have valid parts, prefer the parts-based URL.
+raw_env_url = os.getenv("DATABASE_URL")
+parts_url = _build_db_url_from_parts()
+
+chosen_url = None
+if raw_env_url:
+    if "db.supabase.co" in raw_env_url and parts_url:
+        chosen_url = parts_url
+    else:
+        chosen_url = raw_env_url
+elif parts_url:
+    chosen_url = parts_url
+
+DATABASE_URL = _ensure_sslmode(chosen_url) if chosen_url else None
+
+if not DATABASE_URL:
+    raise RuntimeError(
+        "Database configuration missing: set DATABASE_URL or DB_USER/DB_PASSWORD/DB_HOST/DB_PORT/DB_NAME (or lowercase equivalents)."
+    )
+
+app.config["SQLALCHEMY_DATABASE_URI"] = DATABASE_URL
+app.config["SQLALCHEMY_TRACK_MODIFICATIONS"] = False
+engine_options = {"pool_pre_ping": True}
+if (os.getenv("SQLALCHEMY_DISABLE_POOL", "0").lower() in ("1", "true", "yes")):
+    engine_options["poolclass"] = NullPool
+else:
+    # Keep a small pool to respect Supabase limits when not disabling pooling
+    engine_options["pool_size"] = int(os.getenv("SQLALCHEMY_POOL_SIZE", "5"))
+    engine_options["max_overflow"] = int(os.getenv("SQLALCHEMY_MAX_OVERFLOW", "0"))
+    engine_options["pool_recycle"] = int(os.getenv("SQLALCHEMY_POOL_RECYCLE", "300"))
+
+app.config["SQLALCHEMY_ENGINE_OPTIONS"] = engine_options
+db = SQLAlchemy(app)
+
+# Safe log of DB host to help diagnose env precedence (no credentials)
+try:
+    at_idx = DATABASE_URL.rfind("@")
+    host_part = DATABASE_URL[at_idx + 1 :].split("/")[0] if at_idx != -1 else DATABASE_URL.split("//", 1)[-1].split("/")[0]
+    print(f"Using database host: {host_part}")
+except Exception:
+    pass
 
 # creating the table
-def init_db():
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor() # allows python to speak to sqlite
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS tasks (
-            task_id INTEGER PRIMARY KEY,
-            task_name TEXT NOT NULL,
-            isChecked BIT DEFAULT 0,
-            priority TEXT NOT NULL,
-            deadline DATETIME NOT NULL, 
-            created_at TIMESTAMP DEFAULT (datetime('now', 'localtime')),
-            list_id INTEGER,
-            is_deleted BIT DEFAULT 0,
-            FOREIGN KEY (list_id) REFERENCES lists (list_id)
-        )               
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS users (
-            user_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE NOT NULL,
-            password TEXT NOT NULL,
-            email TEXT UNIQUE NOT NULL   
-        )
-    ''')
-    cursor.execute('''
-        CREATE TABLE IF NOT EXISTS lists (
-            list_id INTEGER PRIMARY KEY AUTOINCREMENT,
-            list_name TEXT NOT NULL,
-            owner_id INTEGER NOT NULL,
-            FOREIGN KEY (owner_id) REFERENCES users (user_id) 
-        )       
-    ''')
-    cursor.execute('''
-       CREATE TABLE IF NOT EXISTS list_collaborators (
-            list_id INTEGER NOT NULL,
-            user_id INTEGER NOT NULL,
-            PRIMARY KEY (list_id, user_id),
-            FOREIGN KEY (list_id) REFERENCES lists (list_id),
-            FOREIGN KEY (user_id) REFERENCES users (user_id)
-        )             
-    ''')
-    conn.commit()
-    conn.close()
+# ================= DATABASE MODELS =================
 
-init_db()
+class User(db.Model):
+    __tablename__ = "users"
+    user_id = db.Column(db.Integer, primary_key=True)
+    name = db.Column(db.String(120), unique=True, nullable=False)
+    email = db.Column(db.String(120), unique=True, nullable=False)
+    password = db.Column(db.Text, nullable=False)
+
+class List(db.Model):
+    __tablename__ = "lists"
+    list_id = db.Column(db.Integer, primary_key=True)
+    list_name = db.Column(db.Text, nullable=False)
+    owner_id = db.Column(db.Integer, db.ForeignKey("users.user_id"))
+
+class Task(db.Model):
+    __tablename__ = "tasks"
+    task_id = db.Column(db.Integer, primary_key=True)
+    task_name = db.Column(db.Text, nullable=False)
+    isChecked = db.Column(db.Boolean, default=False)
+    priority = db.Column(db.Text, nullable=False)
+    deadline = db.Column(db.DateTime, nullable=False)
+    created_at = db.Column(db.DateTime, default=datetime.utcnow)
+    list_id = db.Column(db.Integer, db.ForeignKey("lists.list_id"))
+    is_deleted = db.Column(db.Boolean, default=False)
+
+class ListCollaborator(db.Model):
+    __tablename__ = "list_collaborators"
+    list_id = db.Column(db.Integer, db.ForeignKey("lists.list_id"), primary_key=True)
+    user_id = db.Column(db.Integer, db.ForeignKey("users.user_id"), primary_key=True)
+
+with app.app_context():
+    db.create_all()
 
 # prevent caching for ALL responses
 @app.after_request
@@ -84,171 +141,105 @@ def add_header(response):
 
 # helper functions
 
-# retrieve all tasks with default sorting option
-def get_tasks(list_id, sort="created_at", order="desc"):
-    user_id = session['user_id']
-
-    # security purposes lol
-    allowed_sorts = {"priority", "created_at", "deadline"}
-    allowed_order = {"asc", "desc"}
-
-    if sort not in allowed_sorts:
-        sort = "created_at"
-    if order not in allowed_order:
-        order = "desc"
-
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-
-    # check if user is owner of collaborator
-    cursor.execute('''
-        SELECT 1 FROM lists
-        WHERE list_id = ? AND owner_id = ?
-
-        UNION
-                   
-        SELECT 1 FROM list_collaborators
-        WHERE list_id = ? AND user_id = ?
-    ''', (list_id, user_id, list_id, user_id))
-
-    if not cursor.fetchone():
-        conn.close()
-        raise PermissionError("You do not have access to this list.")
-
-    if sort == "priority":
-        cursor.execute('''
-            SELECT * FROM tasks 
-                WHERE list_id = ? AND is_deleted = 0
-                ORDER BY CASE priority 
-                    WHEN 'high' THEN 1
-                    WHEN 'medium' THEN 2
-                    WHEN 'low' THEN 3
-                END ASC
-            ''', (list_id,))
-    else:
-        cursor.execute(f'SELECT * FROM tasks WHERE list_id = ? AND is_deleted = 0 ORDER BY {sort} {order.upper()}', (list_id,))
-
-    tasks = cursor.fetchall()
-    cursor.close()
-    return tasks
-
-# add a task
-def add_task(task_name, priority, deadline, list_id):
-    conn = sqlite3.connect(DB_path)
-    # enable foreign key enforcement
-    conn.execute("PRAGMA foreign_keys = ON")
-    cursor = conn.cursor()
-    cursor.execute('INSERT INTO tasks (task_name, priority, deadline, list_id) VALUES(?, ?, ?, ?)', (task_name, priority, deadline, list_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-# edit task
-def edit_task(task_id, task_name, priority, deadline):
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('UPDATE tasks SET task_name = ?, priority = ?, deadline = ? WHERE task_id = ?', (task_name, priority, deadline, task_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-# delete task
-def delete_task(task_id):
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('UPDATE tasks SET is_deleted = 1 WHERE task_id = ?', (task_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-# toggle task checkbox
-def toggle_task(task_id, isChecked):
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('UPDATE tasks SET isChecked = ? WHERE task_id = ?', (isChecked, task_id))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-# undo delete task
-def undo_task_delete(task_id):
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('UPDATE tasks SET is_deleted = 0 WHERE task_id = ?', (task_id,))
-    conn.commit()
-    cursor.close()
-    conn.close()
-
-# sign up user
 def signup_user(name, password, email):
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    # encryot password before saving to database
-    hashwed_pwd = generate_password_hash(password)
-    cursor.execute('INSERT INTO users (name, password, email) VALUES(?, ?, ?)', (name, hashwed_pwd, email))
+    user = User(
+        name=name,
+        email=email,
+        password=generate_password_hash(password)
+    )
+    db.session.add(user)
+    db.session.commit()
 
-    # get newly created user_id
-    user_id = cursor.lastrowid
-    # create default list
-    cursor.execute('INSERT INTO lists (list_name, owner_id) VALUES(?, ?)', ("My Dooby List", user_id))
+    default_list = List(list_name="My Dooby List", owner_id=user.user_id)
+    db.session.add(default_list)
+    db.session.commit()
+    return user.user_id
 
-    conn.commit()
-    cursor.close()
-    conn.close()
 
-    return user_id
-
-def get_default_list_id(user_id):
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    # fetch the first list created by the user (default list)
-    cursor.execute('SELECT list_id FROM lists WHERE owner_id=? ORDER BY list_id ASC LIMIT 1', (user_id,))
-    row = cursor.fetchone()
-    conn.close()
-    if row:
-        return row[0]
-    return None
-
-# retrieve all details
 def get_user(name):
-    conn = sqlite3.connect(DB_path)
-    conn.row_factory = sqlite3.Row  # return dict-like rows
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id, name, email, password FROM users WHERE name=?", (name,))
-    user = cursor.fetchone()
-    conn.close()
-    return user
+    return User.query.filter_by(name=name).first()
+
 
 def get_user_email(email):
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT user_id, name, email, password FROM users WHERE email=?", (email,))
-    user = cursor.fetchone()
-    cursor.close()
-    conn.close()
-    return user
+    return User.query.filter_by(email=email).first()
 
-# check if name or email already exists
+
 def user_exists(name, email):
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute("SELECT * FROM users WHERE name = ? OR email = ?", (name, email))
-    user = cursor.fetchone()
-    conn.close()
-    return user
+    return User.query.filter((User.name == name) | (User.email == email)).first()
+
+
+def get_default_list_id(user_id):
+    lst = List.query.filter_by(owner_id=user_id).order_by(List.list_id.asc()).first()
+    return lst.list_id if lst else None
+
+
+def add_task(task_name, priority, deadline, list_id):
+    task = Task(task_name=task_name, priority=priority, deadline=deadline, list_id=list_id)
+    db.session.add(task)
+    db.session.commit()
+
+
+def edit_task(task_id, task_name, priority, deadline):
+    t = Task.query.get(task_id)
+    t.task_name = task_name
+    t.priority = priority
+    t.deadline = deadline
+    db.session.commit()
+
+
+def delete_task(task_id):
+    Task.query.get(task_id).is_deleted = True
+    db.session.commit()
+
+
+def toggle_task(task_id, isChecked):
+    Task.query.get(task_id).isChecked = bool(isChecked)
+    db.session.commit()
+
+
+def undo_task_delete(task_id):
+    Task.query.get(task_id).is_deleted = False
+    db.session.commit()
+
+
+def get_tasks(list_id, sort="created_at", order="desc"):
+    user_id = session["user_id"]
+
+    owns = List.query.filter_by(list_id=list_id, owner_id=user_id).first()
+    collab = ListCollaborator.query.filter_by(list_id=list_id, user_id=user_id).first()
+    if not owns and not collab:
+        raise PermissionError()
+
+    q = Task.query.filter_by(list_id=list_id, is_deleted=False)
+
+    if sort == "priority":
+        q = q.order_by(db.case(
+            (Task.priority == "high", 1),
+            (Task.priority == "medium", 2),
+            else_=3
+        ))
+    else:
+        q = q.order_by(getattr(getattr(Task, sort), order)())
+
+    results = q.all()
+    return [
+        (
+            t.task_id,
+            t.task_name,
+            1 if t.isChecked else 0,
+            t.priority,
+            t.deadline,
+            t.created_at,
+        )
+        for t in results
+    ]
+
 
 def get_collaborators(list_id):
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT u.user_id, u.name, u.email
-        FROM list_collaborators lc
-        JOIN users u ON lc.user_id = u.user_id
-        WHERE lc.list_id = ?
-    ''', (list_id,))
-    collaborators = cursor.fetchall()
-    conn.close()
-    return collaborators
+    return db.session.query(User.user_id, User.name, User.email)\
+        .join(ListCollaborator, ListCollaborator.user_id == User.user_id)\
+        .filter(ListCollaborator.list_id == list_id)\
+        .all()
 
 # flask connections
 
@@ -291,19 +282,18 @@ def index():
         tasks = []  # show empty tasks instead of redirecting
 
 
-    # fetch all owned and collaborated lists
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT l.list_id, l.list_name, u.name AS owner_name
-        FROM lists l
-        JOIN users u ON l.owner_id = u.user_id
-        LEFT JOIN list_collaborators lc ON l.list_id = lc.list_id
-        WHERE l.owner_id = ? OR lc.user_id = ?
-    ''', (user_id, user_id))
-
-    lists = cursor.fetchall()
-    conn.close()
+    # fetch all owned and collaborated lists via SQLAlchemy
+    lists = (
+        db.session.query(
+            List.list_id, List.list_name, User.name.label("owner_name")
+        )
+        .join(User, List.owner_id == User.user_id)
+        .outerjoin(ListCollaborator, List.list_id == ListCollaborator.list_id)
+        .filter((List.owner_id == user_id) | (ListCollaborator.user_id == user_id))
+        .group_by(List.list_id, List.list_name, User.name)
+        .order_by(List.list_id.asc())
+        .all()
+    )
 
     # pass the session values explicitly from login details
     return render_template("index.html", tasks=tasks, lists=lists, current_list_id=int(list_id), name=session['name'], email=session['email'])
@@ -333,31 +323,16 @@ def add_task_route():
         flash("No list available to add the task.")
         return redirect(url_for('index'))
 
-    # check if user has access to list: owner or collaborator
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT 1 FROM lists
-        WHERE list_id = ? AND owner_id = ?
-        UNION
-        SELECT 1 FROM list_collaborators
-        WHERE list_id = ? AND user_id = ?
-    ''', (list_id, user_id, list_id, user_id))
-
-    if not cursor.fetchone(): # if row empty
-        conn.close()
+    # access check via SQLAlchemy: owner or collaborator
+    owns = List.query.filter_by(list_id=list_id, owner_id=user_id).first()
+    collab = ListCollaborator.query.filter_by(list_id=list_id, user_id=user_id).first()
+    if not owns and not collab:
         flash("You do not have access to this list.")
         return redirect(url_for('index'))
 
-    conn.close()
-
     # add the task
-    try:
-        add_task(task_name, priority, deadline, list_id)
-        flash("Task addded successfully!")
-    except sqlite3.IntegrityError:
-        flash("Login to add task.")
-        return redirect(url_for('login'))
+    add_task(task_name, priority, deadline, list_id)
+    flash("Task addded successfully!")
     # remain in the same list page
     return redirect(url_for('index', list_id=list_id)) 
 
@@ -374,16 +349,10 @@ def edit_task_route(task_id):
     if list_id:
         list_id = int(list_id)
     else:
-        # fallback: fetch list_id from the task itself
-        conn = sqlite3.connect(DB_path)
-        cursor = conn.cursor()
-        cursor.execute('SELECT list_id FROM tasks WHERE task_id=?', (task_id,))
-        row = cursor.fetchone()
-        conn.close()
-        # if match, convert
-        if row:
-            list_id = row[0]
-        # if no match in db, fall back to default list_id
+        # fallback: fetch list_id from the task itself via SQLAlchemy
+        t = Task.query.get(task_id)
+        if t:
+            list_id = t.list_id
         else:
             list_id = get_default_list_id(user_id)
 
@@ -393,18 +362,13 @@ def edit_task_route(task_id):
 # delete tasks
 @app.route('/delete_task/<int:task_id>', methods=['GET']) 
 def delete_task_route(task_id):
-    # fetch the list_id of this task
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('SELECT list_id FROM tasks WHERE task_id=?', (task_id,))
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
+    # fetch the list_id of this task via SQLAlchemy
+    t = Task.query.get(task_id)
+    if not t:
         flash("Task not found.", "error")
         return redirect(url_for('index')) # fall back to default
     
-    list_id = row[0]
-    conn.close()
+    list_id = t.list_id
 
     delete_task(task_id)
     flash(f"Task deleted! <a href='{url_for('undo_task_delete_route', task_id=task_id)}' class='btn undo-btn'>Undo</a>", "undo")
@@ -421,18 +385,13 @@ def toggle_task_route(task_id):
 # undo task delete
 @app.route('/undo_task_delete/<int:task_id>', methods=['GET', 'POST'])
 def undo_task_delete_route(task_id):
-    # fetch the list_id of this task
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('SELECT list_id FROM tasks WHERE task_id=?', (task_id,))
-    row = cursor.fetchone()
-    if not row:
-        conn.close()
+    # fetch the list_id of this task via SQLAlchemy
+    t = Task.query.get(task_id)
+    if not t:
         flash("Task not found.", "error")
         return redirect(url_for('index')) # fall back to default
     
-    list_id = row[0]
-    conn.close()
+    list_id = t.list_id
     
     undo_task_delete(task_id)
 
@@ -480,15 +439,15 @@ def login():
             return redirect(url_for('login'))
         
         # if user exists, retrieve hashed pw from db
-        stored_pwd = user['password']
+        stored_pwd = user.password
 
         # verify password
         # rehash entered password and compare to the stored password
         if check_password_hash(stored_pwd, password):
             # store session details from get_user(name) signed by secret key
-            session['user_id'] = user['user_id']
-            session['name'] = user['name']
-            session['email'] = user['email']
+            session['user_id'] = user.user_id
+            session['name'] = user.name
+            session['email'] = user.email
             flash('Login successful!')
             return redirect(url_for('index')) 
         else:
@@ -552,73 +511,58 @@ def reset_password(token):
         # once the user has submitted their new password
         new_password = request.form['new_password']
         hashed = generate_password_hash(new_password)
-
-        conn = sqlite3.connect(DB_path)
-        cursor = conn.cursor()
-        cursor.execute("UPDATE users SET password=? WHERE email=?", (hashed, email))
-        conn.commit()
-        conn.close()
-
+        u = User.query.filter_by(email=email).first()
+        if u:
+            u.password = hashed
+            db.session.commit()
         flash("Password reset successful!", "success")
         return redirect(url_for('login'))
-
-    # step 2: show the reset form 
-    return render_template('resetpass.html', email=email)
     
 # profile
 @app.route('/profile', methods=['GET', 'POST'])
 def profile():
-    # step 1
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
     user_id = session.get('user_id')
-
     if not user_id:
         flash("You need to log in to access your profile.", "error")
         return redirect(url_for('login'))
 
-    # step 3
     if request.method == 'POST':
-        # using get for flexibility - will return none if user did not input anything instead of raising an error 
         name = request.form.get('name')
         new_email = request.form.get('email')
         password = request.form.get('password')
 
-        updates = [] # list of attributes to update
-        params = [] # list of parameters to replace the value in the query
-
+        updates = []
         if name:
-            updates.append("name=?")
-            params.append(name)
+            updates.append('name')
             session['name'] = name
-
         if new_email:
-            updates.append("email=?")
-            params.append(new_email)
+            updates.append('email')
             session['email'] = new_email
-
-        if password and password.strip(): # using strip to remove trailing white spaces
+        if password and password.strip():
+            updates.append('password')
             hashed = generate_password_hash(password)
-            updates.append("password=?")
-            params.append(hashed)
+        else:
+            hashed = None
 
         if updates:
-            sql = f"UPDATE users SET {', '.join(updates)} WHERE user_id=?"
-            params.append(user_id)
-            cursor.execute(sql, tuple(params)) 
-            conn.commit()
+            u = User.query.get(user_id)
+            if u:
+                if 'name' in updates:
+                    u.name = name
+                if 'email' in updates:
+                    u.email = new_email
+                if 'password' in updates and hashed:
+                    u.password = hashed
+                db.session.commit()
             flash("Profile updated successfully!", "success")
         else:
             flash("No changes detected.", "info")
-
         return redirect(url_for('index'))
 
-    # step 2 : GET request - prefill form
-    cursor.execute("SELECT name, email FROM users WHERE user_id=?", (user_id,))
-    user = cursor.fetchone()
-    conn.close()
-
-    return render_template('profile.html', user=user)
+    # GET: prefill form
+    u = User.query.get(user_id)
+    user_tuple = (u.name, u.email) if u else ("", "")
+    return render_template('profile.html', user=user_tuple)
 
 
 # === COLLABORATION ===
@@ -638,11 +582,9 @@ def create_list():
 
     user_id = session['user_id']
 
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('INSERT INTO lists (list_name, owner_id) VALUES (?, ?)', (list_name, user_id))
-    conn.commit()
-    conn.close()
+    new_list = List(list_name=list_name, owner_id=user_id)
+    db.session.add(new_list)
+    db.session.commit()
 
     flash(f"List '{list_name}' created successfully!", "success")
     return redirect(url_for('collaboration'))
@@ -664,20 +606,18 @@ def collaboration():
         except ValueError:
             current_list_id = None
 
-    # fetch all owned and collaborated lists
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('''
-        SELECT l.list_id, l.list_name, u.name AS owner_name
-        FROM lists l
-        JOIN users u ON l.owner_id = u.user_id
-        LEFT JOIN list_collaborators lc ON l.list_id = lc.list_id
-        WHERE l.owner_id = ? OR lc.user_id = ?
-        GROUP BY l.list_id
-        ORDER BY l.list_id ASC
-    ''', (user_id, user_id))
-    lists = cursor.fetchall()
-    conn.close()
+    # fetch all owned and collaborated lists via SQLAlchemy
+    lists = (
+        db.session.query(
+            List.list_id, List.list_name, User.name.label('owner_name')
+        )
+        .join(User, List.owner_id == User.user_id)
+        .outerjoin(ListCollaborator, List.list_id == ListCollaborator.list_id)
+        .filter((List.owner_id == user_id) | (ListCollaborator.user_id == user_id))
+        .group_by(List.list_id, List.list_name, User.name)
+        .order_by(List.list_id.asc())
+        .all()
+    )
 
     return render_template('collaboration.html', lists=lists, current_list_id=current_list_id, get_collaborators=get_collaborators)
 
@@ -693,24 +633,18 @@ def add_collaborator():
     collaborator_email = request.form['collaborator_email']
 
     # verify if the current user owns the list
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('SELECT owner_id FROM lists WHERE list_id=?', (list_id,))
-    owner = cursor.fetchone()
-    if not owner or owner[0] != user_id:
+    owner_list = List.query.get(list_id)
+    if not owner_list or owner_list.owner_id != user_id:
         flash("You do not have permission to add collaborators.", "error")
-        conn.close()
         return redirect(url_for('index', list_id=list_id))
 
     # find the collaborator user_id by email
-    cursor.execute('SELECT user_id FROM users WHERE email=?', (collaborator_email,))
-    collaborator = cursor.fetchone()
+    collaborator = User.query.filter_by(email=collaborator_email).first()
     if not collaborator:
         flash("User not found.", "error")
-        conn.close()
         return redirect(url_for('index', list_id=list_id))
 
-    collaborator_id = collaborator[0]
+    collaborator_id = collaborator.user_id
 
     # prevent adding self
     if collaborator_id == user_id:
@@ -720,13 +654,12 @@ def add_collaborator():
 
     # add collaborator if not already exists
     try:
-        cursor.execute('INSERT INTO list_collaborators (list_id, user_id) VALUES (?, ?)', (list_id, collaborator_id))
-        conn.commit()
+        db.session.add(ListCollaborator(list_id=list_id, user_id=collaborator_id))
+        db.session.commit()
         flash(f"Added collaborator: {collaborator_email}", "success")
-    except sqlite3.IntegrityError:
+    except IntegrityError:
+        db.session.rollback()
         flash("User is already a collaborator.", "info")
-
-    conn.close()
     return redirect(url_for('index', list_id=list_id))
 
 @app.route('/remove_collaborator', methods=['POST'])
@@ -740,19 +673,14 @@ def remove_collaborator():
     collaborator_id = int(request.form['collaborator_id'])
 
     # verify if the current user owns the list
-    conn = sqlite3.connect(DB_path)
-    cursor = conn.cursor()
-    cursor.execute('SELECT owner_id FROM lists WHERE list_id=?', (list_id,))
-    owner = cursor.fetchone()
-    if not owner or owner[0] != user_id:
+    lst = List.query.get(list_id)
+    if not lst or lst.owner_id != user_id:
         flash("You do not have permission to remove collaborators.", "error")
-        conn.close()
         return redirect(url_for('index', list_id=list_id))
 
     # remove collaborator
-    cursor.execute('DELETE FROM list_collaborators WHERE list_id=? AND user_id=?', (list_id, collaborator_id))
-    conn.commit()
-    conn.close()
+    ListCollaborator.query.filter_by(list_id=list_id, user_id=collaborator_id).delete()
+    db.session.commit()
     flash("Collaborator removed successfully.", "success")
     return redirect(url_for('index', list_id=list_id))
 
@@ -765,7 +693,6 @@ def logout():
 
 # run
 if __name__ == "__main__":
-    init_db()
     # app.run(debug=True, host='0.0.0.0')
     app.run(debug=True)
    

@@ -1,3 +1,37 @@
+## Supabase/Postgres Configuration (Render)
+
+- Preferred: set `DATABASE_URL` in Render to your Supabase Postgres connection string. Ensure it includes `sslmode=require` or the app will add it automatically.
+- Alternatively set these env vars (supported locally via `.env` and on Render):
+	- `DB_USER`, `DB_PASSWORD`, `DB_HOST`, `DB_PORT` (default 5432), `DB_NAME`.
+- Local `.env` example (do not commit secrets):
+
+```
+SECRET_KEY=change-me
+DB_USER=postgres.xxxxxxxx
+DB_PASSWORD=your-strong-password
+DB_HOST=aws-1-ap-southeast-1.pooler.supabase.com
+DB_PORT=5432
+DB_NAME=postgres
+```
+
+The app prefers `DATABASE_URL` when present, otherwise it assembles a URL from the parts above and enforces `sslmode=require` for Supabase.
+
+### Engine options for Supabase pooling
+- Default: small connection pool (`pool_size=5`, `max_overflow=0`, `pool_pre_ping=True`).
+- To disable client-side pooling (recommended for Transaction Pooler), set:
+
+```
+SQLALCHEMY_DISABLE_POOL=1
+```
+
+- Optional tuning:
+
+```
+SQLALCHEMY_POOL_SIZE=5
+SQLALCHEMY_MAX_OVERFLOW=0
+SQLALCHEMY_POOL_RECYCLE=300
+```
+
 # cmsc128-IndivProject_Laserna
 
 ## This is Dooby, a to-do list made by Andrea Laserna.
