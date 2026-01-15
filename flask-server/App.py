@@ -517,6 +517,8 @@ def reset_password(token):
             db.session.commit()
         flash("Password reset successful!", "success")
         return redirect(url_for('login'))
+
+    return render_template('resetpass.html', email=email)
     
 # profile
 @app.route('/profile', methods=['GET', 'POST'])
